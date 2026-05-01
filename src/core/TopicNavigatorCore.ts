@@ -8,6 +8,9 @@ const HOST_STYLE_ID = 'topic-navigator-host-styles';
 const MIN_DOT_SPACING_PX = 15;
 const STAGE_VERTICAL_PAD_PX = 10;
 
+/** Breathing room above the message body when navigating (sticky headers / cue align). */
+const SCROLL_ABOVE_CUE_PX = 100;
+
 const HOST_STYLES = `
 #${BAR_ID} {
   position: fixed;
@@ -274,6 +277,10 @@ export class TopicNavigatorCore {
   /** Removes scroll listeners tied to AbortController.abort() */
   private conversationScrollCtl: AbortController | null = null;
 
+  /** After programmatic jump: ignore transient viewport readings behind target turn (smooth scroll latency). */
+  private scrollJumpLatchIdx: number | null = null;
+  private scrollJumpLatchTimer: number | undefined;
+
   /** Outline panel overlay */
   private isPanelOpen = false;
   private fabButton: HTMLButtonElement | null = null;
@@ -300,6 +307,7 @@ export class TopicNavigatorCore {
   }
 
   destroy(): void {
+    this.clearScrollJumpLatch();
     this.detachConversationScrollListeners();
     this.clearViewportSyncTimers();
     window.removeEventListener('wheel', this.onWheelHideTip, { capture: true });
@@ -342,6 +350,7 @@ export class TopicNavigatorCore {
       (document.scrollingElement as HTMLElement);
 
     if (!roots.length) {
+      this.clearScrollJumpLatch();
       this.detachConversationScrollListeners();
       this.bar?.remove();
       this.bar = null;
@@ -400,6 +409,7 @@ export class TopicNavigatorCore {
   }
 
   private destroyExceptUi(): void {
+    this.clearScrollJumpLatch();
     this.detachConversationScrollListeners();
     this.clearViewportSyncTimers();
     if (this.debounceTimer) clearTimeout(this.debounceTimer);
@@ -439,6 +449,14 @@ export class TopicNavigatorCore {
   private detachConversationScrollListeners(): void {
     this.conversationScrollCtl?.abort();
     this.conversationScrollCtl = null;
+  }
+
+  private clearScrollJumpLatch(): void {
+    if (this.scrollJumpLatchTimer !== undefined) {
+      window.clearTimeout(this.scrollJumpLatchTimer);
+      this.scrollJumpLatchTimer = undefined;
+    }
+    this.scrollJumpLatchIdx = null;
   }
 
   /**
@@ -579,8 +597,6 @@ export class TopicNavigatorCore {
     let bestIdx = 0;
     let bestScore = -Infinity;
     let maxPixAll = -1;
-    /** Per-turn metrics for neighbour comparison */
-    const visCues: number[] = [];
 
     for (let i = 0; i < this.roots.length; i++) {
       const root = this.roots[i];
@@ -595,7 +611,6 @@ export class TopicNavigatorCore {
       }
 
       maxPixAll = Math.max(maxPixAll, visCue);
-      visCues.push(visCue);
 
       const cueH = Math.max(cueR.height, 24);
       const cueInViewRatio = Math.min(1, visCue / cueH);
@@ -622,13 +637,6 @@ export class TopicNavigatorCore {
       }
     }
 
-    /** If the following user turn shows much more body in-strip, nudge one step (no chain to end). */
-    if (bestIdx < this.roots.length - 1) {
-      const a = visCues[bestIdx] ?? 0;
-      const b = visCues[bestIdx + 1] ?? 0;
-      if (b > a + 36 && b > stripeH * 0.1) bestIdx = bestIdx + 1;
-    }
-
     if (bestScore < 520 && maxPixAll < 72) {
       const focus = stripTop + stripeH * 0.42;
       let spy = 0;
@@ -644,7 +652,71 @@ export class TopicNavigatorCore {
     const lastR = this.roots[this.roots.length - 1].getBoundingClientRect();
     if (lastR.bottom <= stripBottom + 22 && maxPixAll < 52) bestIdx = this.roots.length - 1;
 
-    return Math.min(Math.max(bestIdx, 0), this.roots.length - 1);
+    const clamped = Math.min(Math.max(bestIdx, 0), this.roots.length - 1);
+
+    /** While smooth-scrolling deeper into the thread, don’t regress to an earlier heuristic index. */
+    let tentative =
+      this.scrollJumpLatchIdx !== null && clamped < this.scrollJumpLatchIdx
+        ? this.scrollJumpLatchIdx
+        : clamped;
+
+    const latched =
+      this.scrollJumpLatchIdx !== null && tentative === this.scrollJumpLatchIdx;
+    if (latched) return tentative;
+
+    return this.constrainJumpByCueReadiness(tentative, stripTop, stripBottom, stripeH);
+  }
+
+  /**
+   * Don’t activate the next/previous marker until its prompt body is visibly “settled”
+   * (top not clipped high, most of cue in-strip). Walks incrementally from `activeIndex`.
+   */
+  private constrainJumpByCueReadiness(
+    raw: number,
+    stripTop: number,
+    stripBottom: number,
+    stripeH: number,
+  ): number {
+    const prev = this.activeIndex;
+    if (prev < 0 || prev === raw) return raw;
+
+    /** Only stagger when moving “down-thread”; upward / jump-back uses raw compute (avoids fighting click+jump mid-scroll). */
+    if (raw > prev) {
+      let adv = prev;
+      while (
+        adv < raw &&
+        this.turnCueEligibleForOwnership(adv + 1, stripTop, stripBottom, stripeH)
+      ) {
+        adv++;
+      }
+      return adv;
+    }
+
+    return raw;
+  }
+
+  /** Next/prev timeline step only when caption area is unobstructed and sufficiently on-screen */
+  private turnCueEligibleForOwnership(
+    i: number,
+    stripTop: number,
+    stripBottom: number,
+    stripeH: number,
+  ): boolean {
+    const root = this.roots[i];
+    if (!root) return false;
+    const cueR = this.messageContentCue(root).getBoundingClientRect();
+    const cueH = Math.max(cueR.height, 40);
+
+    /** Title / lead line must enter from top of strip cleanly */
+    if (cueR.top < stripTop - 12) return false;
+
+    const vis = this.stripeIntersectPx(cueR, stripTop, stripBottom);
+    const fit = Math.min(cueH, stripeH);
+
+    if (cueH <= fit + 48) return vis >= fit * 0.92;
+
+    /** Tall prompts: viewport filled with prose + top anchored */
+    return vis >= stripeH * 0.82 && cueR.bottom > stripBottom - 120;
   }
 
   private syncActiveFromViewport(scrollRootLike: HTMLElement | Document): void {
@@ -945,60 +1017,72 @@ export class TopicNavigatorCore {
     const n = this.roots.length;
     const behavior: ScrollBehavior = 'smooth';
 
-    const scrollEl =
-      this.adapter.getScrollRoot(document) ??
-      getScrollParent(el) ??
-      (document.scrollingElement as HTMLElement | null);
+    this.scrollJumpLatchIdx = i;
+    if (this.scrollJumpLatchTimer !== undefined) window.clearTimeout(this.scrollJumpLatchTimer);
+    this.scrollJumpLatchTimer = window.setTimeout(() => {
+      this.scrollJumpLatchIdx = null;
+      this.scrollJumpLatchTimer = undefined;
+    }, 520);
 
-    /** Avoid scrollIntoView + scrollTo racing each other — one strategy per container. */
+    try {
+      const scrollEl =
+        this.adapter.getScrollRoot(document) ??
+        getScrollParent(el) ??
+        (document.scrollingElement as HTMLElement | null);
 
-    const scrollElementContainer = (): void => {
-      if (!scrollEl || scrollEl === document.body || scrollEl === document.documentElement) return;
-      const sr = scrollEl as HTMLElement;
-      const srRect = sr.getBoundingClientRect();
-      const elRect = el.getBoundingClientRect();
-      const relTop = elRect.top - srRect.top + sr.scrollTop;
+      /** Avoid scrollIntoView + scrollTo racing each other — one strategy per container. */
 
-      if (i === n - 1) {
-        const maxTop = Math.max(0, sr.scrollHeight - sr.clientHeight);
-        sr.scrollTo({ top: maxTop, behavior });
-        queueMicrotask(() => {
-          if (!sr.isConnected) return;
-          const max2 = Math.max(0, sr.scrollHeight - sr.clientHeight);
-          if (sr.scrollHeight > sr.clientHeight && Math.abs(sr.scrollTop - max2) > 6) {
-            sr.scrollTo({ top: max2, behavior: 'smooth' });
-          }
+      const scrollElementContainer = (): void => {
+        if (!scrollEl || scrollEl === document.body || scrollEl === document.documentElement) return;
+        const sr = scrollEl as HTMLElement;
+        const srRect = sr.getBoundingClientRect();
+        const cueRect = this.messageContentCue(el).getBoundingClientRect();
+        const relTop = cueRect.top - srRect.top + sr.scrollTop;
+
+        if (i === n - 1) {
+          const maxTop = Math.max(0, sr.scrollHeight - sr.clientHeight);
+          sr.scrollTo({ top: maxTop, behavior });
+          queueMicrotask(() => {
+            if (!sr.isConnected) return;
+            const max2 = Math.max(0, sr.scrollHeight - sr.clientHeight);
+            if (sr.scrollHeight > sr.clientHeight && Math.abs(sr.scrollTop - max2) > 6) {
+              sr.scrollTo({ top: max2, behavior: 'smooth' });
+            }
+          });
+          return;
+        }
+
+        if (i === 0) {
+          sr.scrollTo({ top: 0, behavior });
+          return;
+        }
+
+        sr.scrollTo({ top: Math.max(0, relTop - SCROLL_ABOVE_CUE_PX), behavior });
+      };
+
+      if (scrollEl && scrollEl !== document.body && scrollEl !== document.documentElement) {
+        scrollElementContainer();
+      } else if (i === n - 1) {
+        const docEl = document.documentElement;
+        const maxTop = Math.max(0, docEl.scrollHeight - window.innerHeight);
+        window.scrollTo({ top: maxTop, behavior });
+      } else if (i === 0) {
+        window.scrollTo({ top: 0, behavior });
+        el.scrollIntoView({ behavior, block: 'start' });
+      } else {
+        const cue = this.messageContentCue(el);
+        const cueY = cue.getBoundingClientRect().top + window.scrollY;
+        window.scrollTo({
+          top: Math.max(0, cueY - SCROLL_ABOVE_CUE_PX),
+          behavior,
         });
-        return;
       }
-
-      if (i === 0) {
-        sr.scrollTo({ top: 0, behavior });
-        return;
-      }
-
-      sr.scrollTo({ top: Math.max(0, relTop - 12), behavior });
-    };
-
-    if (scrollEl && scrollEl !== document.body && scrollEl !== document.documentElement) {
-      scrollElementContainer();
-      return;
+    } finally {
+      queueMicrotask(() => {
+        this.highlightActive(i);
+        this.scrollRailToShowActiveDot(false);
+      });
     }
-
-    if (i === n - 1) {
-      const docEl = document.documentElement;
-      const maxTop = Math.max(0, docEl.scrollHeight - window.innerHeight);
-      window.scrollTo({ top: maxTop, behavior });
-      return;
-    }
-
-    if (i === 0) {
-      window.scrollTo({ top: 0, behavior });
-      el.scrollIntoView({ behavior, block: 'start' });
-      return;
-    }
-
-    el.scrollIntoView({ behavior, block: 'start' });
   }
 
   private setupIntersection(scrollRootLike: HTMLElement | Document): void {
@@ -1011,41 +1095,31 @@ export class TopicNavigatorCore {
       return scrollRootLike;
     })();
 
-    this.intersectionObserver = new IntersectionObserver(
-      (entries) => {
-        let bestRatio = -1;
-        let bestIdx = -1;
-        entries.forEach((e) => {
-          if (!(e.target instanceof HTMLElement)) return;
-          const idx = this.roots.indexOf(e.target);
-          if (idx >= 0 && e.intersectionRatio > bestRatio) {
-            bestRatio = e.intersectionRatio;
-            bestIdx = idx;
-          }
-        });
-        if (bestIdx >= 0 && bestRatio > 0) {
-          this.highlightActive(bestIdx, true);
-        }
-      },
-      {
-        root,
-        rootMargin: '-8% 0px -58% 0px',
-        threshold: [0, 0.02, 0.06, 0.14, 0.28, 0.48, 0.72, 1],
-      },
-    );
+    /** Re-run full viewport math + advance hysteresis (IO ratios alone skipped “title ready”). */
+    this.intersectionObserver = new IntersectionObserver(() => {
+      if (!this.bar || !this.roots.length) return;
+      queueMicrotask(() => {
+        if (!this.bar?.isConnected || !this.roots.length) return;
+        const sr = this.lastSyncScrollRoot ?? document.documentElement;
+        this.syncActiveFromViewport(sr);
+        queueMicrotask(() => this.scrollRailToShowActiveDot(true));
+      });
+    }, {
+      root,
+      rootMargin: '-8% 0px -58% 0px',
+      threshold: [0, 0.02, 0.06, 0.14, 0.28, 0.48, 0.72, 1],
+    });
 
     this.roots.forEach((r) => this.intersectionObserver?.observe(r));
   }
 
-  private highlightActive(idx: number, fromScrollIntersection?: boolean): void {
+  private highlightActive(idx: number): void {
     if (idx < 0) return;
     this.activeIndex = idx;
     this.dots.forEach((d, j) => {
       d.classList.toggle('topic-nav-dot--active', j === idx);
     });
     this.updatePanelHighlight();
-    /** Keep the blue dot inside the capsule when many markers + user scroll */
-    if (fromScrollIntersection) queueMicrotask(() => this.scrollRailToShowActiveDot(true));
   }
 
   private updatePanelHighlight(): void {
