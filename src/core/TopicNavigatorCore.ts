@@ -556,7 +556,8 @@ export class TopicNavigatorCore {
   }
 
   /**
-   * Maximise cue visibility in scrolling strip (+ fractional overlap) rather than outer card top crossing a band.
+   * Maximise cue (message body) ownership of the viewport; demote turns whose title/body is
+   * clipped or where the strip is mostly “other” shell / assistant chrome.
    */
   private computeActiveIndexNearViewport(scrollRootLike: HTMLElement | Document): number {
     if (!this.roots.length) return -1;
@@ -578,46 +579,70 @@ export class TopicNavigatorCore {
     let bestIdx = 0;
     let bestScore = -Infinity;
     let maxPixAll = -1;
+    /** Per-turn metrics for neighbour comparison */
+    const visCues: number[] = [];
 
     for (let i = 0; i < this.roots.length; i++) {
       const root = this.roots[i];
       const cueEl = this.messageContentCue(root);
       const cueR = cueEl.getBoundingClientRect();
-      let pix = this.stripeIntersectPx(cueR, stripTop, stripBottom);
+      const rootR = root.getBoundingClientRect();
+      let visCue = this.stripeIntersectPx(cueR, stripTop, stripBottom);
 
-      if (pix < 26 && cueEl !== root) {
+      if (visCue < 26 && cueEl !== root) {
         const outerR = root.getBoundingClientRect();
-        pix = Math.max(pix, this.stripeIntersectPx(outerR, stripTop, stripBottom) * 0.42);
+        visCue = Math.max(visCue, this.stripeIntersectPx(outerR, stripTop, stripBottom) * 0.38);
       }
 
-      maxPixAll = Math.max(maxPixAll, pix);
+      maxPixAll = Math.max(maxPixAll, visCue);
+      visCues.push(visCue);
 
-      const h = Math.max(cueR.height, 28);
-      const frac = pix / Math.min(h, stripeH);
-      const score = pix * 200 + frac * 360;
+      const cueH = Math.max(cueR.height, 24);
+      const cueInViewRatio = Math.min(1, visCue / cueH);
+      const fracStripe = visCue / Math.min(cueH, stripeH);
 
-      if (score > bestScore + 6) {
+      let score = visCue * 220 + fracStripe * 420 + cueInViewRatio * 180;
+
+      /** Title / body top clipped: user has moved into reply or next block */
+      const topClipped = cueR.top < stripTop - 2;
+      if (topClipped && cueInViewRatio < 0.58) score *= 0.32;
+
+      /** Only a sliver of cue but large card overlap → mostly assistant / chrome in strip */
+      const visRoot = this.stripeIntersectPx(rootR, stripTop, stripBottom);
+      if (visRoot > visCue + 72 && visCue < stripeH * 0.26) score *= 0.38;
+
+      /** Bottom clipped with little cue left — usually reading following content */
+      if (cueR.bottom > stripBottom + 8 && visCue < cueH * 0.35) score *= 0.55;
+
+      if (score > bestScore + 8) {
         bestScore = score;
         bestIdx = i;
-      } else if (score >= bestScore - 14 && pix >= 12 && i > bestIdx) {
+      } else if (score >= bestScore - 18 && visCue >= 10 && i > bestIdx) {
         bestIdx = i;
       }
     }
 
-    if (bestScore < 540 && maxPixAll < 64) {
+    /** If the following user turn shows much more body in-strip, nudge one step (no chain to end). */
+    if (bestIdx < this.roots.length - 1) {
+      const a = visCues[bestIdx] ?? 0;
+      const b = visCues[bestIdx + 1] ?? 0;
+      if (b > a + 36 && b > stripeH * 0.1) bestIdx = bestIdx + 1;
+    }
+
+    if (bestScore < 520 && maxPixAll < 72) {
       const focus = stripTop + stripeH * 0.42;
       let spy = 0;
       for (let i = 0; i < this.roots.length; i++) {
         const cueR = this.messageContentCue(this.roots[i]).getBoundingClientRect();
-        const lead = cueR.top + Math.min(Math.max(cueR.height * 0.06, 4), 16);
-        if (lead <= focus + 34) spy = i;
+        const lead = cueR.top + Math.min(Math.max(cueR.height * 0.08, 6), 20);
+        if (lead <= focus + 36) spy = i;
         else break;
       }
       bestIdx = spy;
     }
 
     const lastR = this.roots[this.roots.length - 1].getBoundingClientRect();
-    if (lastR.bottom <= stripBottom + 22 && maxPixAll < 48) bestIdx = this.roots.length - 1;
+    if (lastR.bottom <= stripBottom + 22 && maxPixAll < 52) bestIdx = this.roots.length - 1;
 
     return Math.min(Math.max(bestIdx, 0), this.roots.length - 1);
   }
@@ -917,21 +942,63 @@ export class TopicNavigatorCore {
   private scrollToIndex(i: number): void {
     const el = this.roots[i];
     if (!el) return;
-    const scrollFallback =
+    const n = this.roots.length;
+    const behavior: ScrollBehavior = 'smooth';
+
+    const scrollEl =
       this.adapter.getScrollRoot(document) ??
       getScrollParent(el) ??
       (document.scrollingElement as HTMLElement | null);
 
-    el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    /** Avoid scrollIntoView + scrollTo racing each other — one strategy per container. */
 
-    if (scrollFallback && scrollFallback !== document.documentElement && scrollFallback !== document.body) {
-      const top =
-        scrollFallback.scrollTop +
-        el.getBoundingClientRect().top -
-        scrollFallback.getBoundingClientRect().top -
-        12;
-      scrollFallback.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
+    const scrollElementContainer = (): void => {
+      if (!scrollEl || scrollEl === document.body || scrollEl === document.documentElement) return;
+      const sr = scrollEl as HTMLElement;
+      const srRect = sr.getBoundingClientRect();
+      const elRect = el.getBoundingClientRect();
+      const relTop = elRect.top - srRect.top + sr.scrollTop;
+
+      if (i === n - 1) {
+        const maxTop = Math.max(0, sr.scrollHeight - sr.clientHeight);
+        sr.scrollTo({ top: maxTop, behavior });
+        queueMicrotask(() => {
+          if (!sr.isConnected) return;
+          const max2 = Math.max(0, sr.scrollHeight - sr.clientHeight);
+          if (sr.scrollHeight > sr.clientHeight && Math.abs(sr.scrollTop - max2) > 6) {
+            sr.scrollTo({ top: max2, behavior: 'smooth' });
+          }
+        });
+        return;
+      }
+
+      if (i === 0) {
+        sr.scrollTo({ top: 0, behavior });
+        return;
+      }
+
+      sr.scrollTo({ top: Math.max(0, relTop - 12), behavior });
+    };
+
+    if (scrollEl && scrollEl !== document.body && scrollEl !== document.documentElement) {
+      scrollElementContainer();
+      return;
     }
+
+    if (i === n - 1) {
+      const docEl = document.documentElement;
+      const maxTop = Math.max(0, docEl.scrollHeight - window.innerHeight);
+      window.scrollTo({ top: maxTop, behavior });
+      return;
+    }
+
+    if (i === 0) {
+      window.scrollTo({ top: 0, behavior });
+      el.scrollIntoView({ behavior, block: 'start' });
+      return;
+    }
+
+    el.scrollIntoView({ behavior, block: 'start' });
   }
 
   private setupIntersection(scrollRootLike: HTMLElement | Document): void {
