@@ -102,6 +102,32 @@
         </label>
       </section>
 
+      <!-- Preset slots: set display:grid (and remove display:none) to show again — `hidden` was overridden by inline display:grid in Chrome. -->
+      <section
+        id="presetSection"
+        style="display: none; margin-top: 14px; padding-top: 12px; border-top: 1px solid #e5e5e5; gap: 8px"
+      >
+        <span id="_lblPresets" style="font-size: 11px; font-weight: 600; color: #444"></span>
+        <div style="display: flex; flex-wrap: wrap; gap: 6px; align-items: center">
+          <button id="loadDefaultPreset" type="button" style="padding: 5px 10px; border-radius: 6px; border: 1px solid #bbb; cursor: pointer; font: inherit; font-size: 12px"></button>
+        </div>
+        <div style="display: flex; flex-wrap: wrap; gap: 6px; align-items: center">
+          <span id="_slot1Label" style="font-size: 11px; color: #555; min-width: 4.5em"></span>
+          <button id="loadPreset1" type="button" style="padding: 5px 10px; border-radius: 6px; border: 1px solid #bbb; cursor: pointer; font: inherit; font-size: 12px"></button>
+          <button id="savePreset1" type="button" style="padding: 5px 10px; border-radius: 6px; border: 1px solid #ccc; cursor: pointer; font: inherit; font-size: 12px; background: #fff"></button>
+        </div>
+        <div style="display: flex; flex-wrap: wrap; gap: 6px; align-items: center">
+          <span id="_slot2Label" style="font-size: 11px; color: #555; min-width: 4.5em"></span>
+          <button id="loadPreset2" type="button" style="padding: 5px 10px; border-radius: 6px; border: 1px solid #bbb; cursor: pointer; font: inherit; font-size: 12px"></button>
+          <button id="savePreset2" type="button" style="padding: 5px 10px; border-radius: 6px; border: 1px solid #ccc; cursor: pointer; font: inherit; font-size: 12px; background: #fff"></button>
+        </div>
+        <div style="display: flex; flex-wrap: wrap; gap: 6px; align-items: center">
+          <span id="_slot3Label" style="font-size: 11px; color: #555; min-width: 4.5em"></span>
+          <button id="loadPreset3" type="button" style="padding: 5px 10px; border-radius: 6px; border: 1px solid #bbb; cursor: pointer; font: inherit; font-size: 12px"></button>
+          <button id="savePreset3" type="button" style="padding: 5px 10px; border-radius: 6px; border: 1px solid #ccc; cursor: pointer; font: inherit; font-size: 12px; background: #fff"></button>
+        </div>
+      </section>
+
       <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px">
         <button id="save" type="button" style="padding: 6px 12px; border-radius: 7px; border: 1px solid #bbb; cursor: pointer; font: inherit"></button>
         <button id="reset" type="button" style="padding: 6px 12px; border-radius: 7px; border: 1px solid #bbb; cursor: pointer; font: inherit; background: #fff"></button>

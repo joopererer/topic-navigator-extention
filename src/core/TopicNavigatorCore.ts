@@ -1,6 +1,5 @@
 import {
   STORAGE_TOPIC_NAV_APPEARANCE,
-  STORAGE_TOPIC_NAV_APPEARANCE_LIVE_PREVIEW,
   buildTopicNavAppearanceStyle,
   parseTopicNavAppearance,
   type TopicNavAppearanceStored,
@@ -362,47 +361,6 @@ export class TopicNavigatorCore {
     tag.textContent = buildTopicNavAppearanceStyle(a);
   }
 
-  /**
-   * Apply sync appearance, overridden by session live preview when the popup is open.
-   * If session payload is invalid, falls back to sync.
-   */
-  private async pickAndApplyTheme(syncRaw: unknown): Promise<void> {
-    if (!this.bar?.isConnected) return;
-    let chosen: unknown = syncRaw;
-    try {
-      if (typeof chrome !== 'undefined' && chrome.storage?.local?.get) {
-        const s = await chrome.storage.local.get(STORAGE_TOPIC_NAV_APPEARANCE_LIVE_PREVIEW);
-        const p = (s as Record<string, unknown>)[STORAGE_TOPIC_NAV_APPEARANCE_LIVE_PREVIEW];
-        if (p !== undefined) chosen = p;
-      }
-    } catch {
-      /* ignore */
-    }
-    let parsed = parseTopicNavAppearance(chosen);
-    if (!parsed && chosen !== syncRaw && syncRaw !== undefined && syncRaw !== null) {
-      parsed = parseTopicNavAppearance(syncRaw);
-    }
-    if (!parsed) this.clearUserAppearance();
-    else this.applyUserAppearanceSync(parsed);
-  }
-
-  /** Re-read appearance only — used for live preview (no DOM rebuild). */
-  applyStoredAppearanceOnly(): void {
-    void this.reapplyThemeOnly();
-  }
-
-  private async reapplyThemeOnly(): Promise<void> {
-    try {
-      if (typeof chrome === 'undefined' || !chrome.storage?.sync?.get) return;
-      if (!this.bar?.isConnected) return;
-      const bag = await chrome.storage.sync.get(STORAGE_TOPIC_NAV_APPEARANCE);
-      const raw = bag[STORAGE_TOPIC_NAV_APPEARANCE as keyof typeof bag];
-      await this.pickAndApplyTheme(raw);
-    } catch {
-      /* ignore */
-    }
-  }
-
   /** Language + capsule/dot theme from chrome.storage.sync (requires `this.bar`). */
   private async hydrateSyncedSettings(): Promise<void> {
     try {
@@ -411,8 +369,10 @@ export class TopicNavigatorCore {
       const rawUi = bag[STORAGE_TOPIC_NAV_UI as keyof typeof bag];
       const prefs = parseTopicNavUiStored(rawUi) ?? defaultUiPrefs();
       this.uiLang = resolveUiLang(prefs.langPref);
-      const syncRaw = bag[STORAGE_TOPIC_NAV_APPEARANCE as keyof typeof bag];
-      await this.pickAndApplyTheme(syncRaw);
+      const rawA = bag[STORAGE_TOPIC_NAV_APPEARANCE as keyof typeof bag];
+      const parsed = parseTopicNavAppearance(rawA);
+      if (!parsed) this.clearUserAppearance();
+      else this.applyUserAppearanceSync(parsed);
     } catch {
       /* ignore */
     }

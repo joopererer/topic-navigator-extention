@@ -63,6 +63,40 @@ export const UI = {
     fr: 'Thème personnalisé effacé ; onglets mis à jour.',
   },
 
+  presetSectionTitle: {
+    en: 'Saved color schemes (3 slots)',
+    zh: '配色预设（最多 3 个）',
+    fr: 'Jeux de couleurs (3 emplacements)',
+  },
+  btnLoadDefault: {
+    en: 'Load default',
+    zh: '载入默认',
+    fr: 'Défaut',
+  },
+  btnLoadPreset: { en: 'Load {n}', zh: '载入{n}', fr: 'Charger {n}' },
+  btnSaveToPreset: { en: 'Save to {n}', zh: '保存到{n}', fr: 'Enreg. {n}' },
+  presetSlotLabel: { en: 'Slot {n}', zh: '方案{n}', fr: '{n}' },
+  presetSaved: {
+    en: 'Saved to slot {n}.',
+    zh: '已保存到方案{n}。',
+    fr: 'Enregistré ({n}).',
+  },
+  presetLoaded: {
+    en: 'Loaded slot {n}. Use Save & apply to update open tabs.',
+    zh: '已载入方案{n}。保存并应用后可同步到页面。',
+    fr: 'Emplacement {n} chargé. Enregistrez pour appliquer.',
+  },
+  presetEmpty: {
+    en: 'Slot {n} is empty. Save the current form first.',
+    zh: '方案{n}为空，请先将当前配色保存到该方案。',
+    fr: 'Emplacement {n} vide.',
+  },
+  presetLoadedDefault: {
+    en: 'Loaded built‑in default. Use Save & apply to update open tabs.',
+    zh: '已载入内置默认配色。保存并应用后可同步到页面。',
+    fr: 'Défaut chargé. Enregistrez pour appliquer.',
+  },
+
   /** Options page */
   optionsTitle: { en: 'Topic Navigator', zh: 'Topic Navigator', fr: 'Topic Navigator' },
   optionsBrowserTitle: {

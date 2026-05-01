@@ -1,10 +1,15 @@
 import type { TopicNavAppearanceStored } from '../core/appearance.js';
 import {
   STORAGE_TOPIC_NAV_APPEARANCE,
-  STORAGE_TOPIC_NAV_APPEARANCE_LIVE_PREVIEW,
   defaultTopicNavAppearance,
   parseTopicNavAppearance,
 } from '../core/appearance.js';
+import {
+  STORAGE_TOPIC_NAV_APPEARANCE_PRESETS,
+  defaultAppearancePresets,
+  parseAppearancePresets,
+  setPresetSlot,
+} from '../core/appearancePresets.js';
 import {
   STORAGE_TOPIC_NAV_UI,
   defaultUiPrefs,
@@ -43,6 +48,14 @@ const resetBtn = getEl('reset') as HTMLButtonElement;
 const openOpts = getEl('openOptions') as HTMLButtonElement;
 const status = getEl('status') as HTMLParagraphElement;
 
+const loadDefaultPreset = getEl('loadDefaultPreset') as HTMLButtonElement;
+const loadPreset1 = getEl('loadPreset1') as HTMLButtonElement;
+const loadPreset2 = getEl('loadPreset2') as HTMLButtonElement;
+const loadPreset3 = getEl('loadPreset3') as HTMLButtonElement;
+const savePreset1 = getEl('savePreset1') as HTMLButtonElement;
+const savePreset2 = getEl('savePreset2') as HTMLButtonElement;
+const savePreset3 = getEl('savePreset3') as HTMLButtonElement;
+
 const lblCapW = getEl('_lblCapW');
 const lblTrackBg = getEl('_lblTrackBg');
 const lblTrackBd = getEl('_lblTrackBd');
@@ -54,22 +67,10 @@ const lblDotActiveBg = getEl('_lblDotActiveBg');
 const lblDotActiveBd = getEl('_lblDotActiveBd');
 const lblDotActiveBdW = getEl('_lblDotActiveBdW');
 const lblLocaleHeading = getEl('_lblLocaleHeading');
-
-/** Serialized `readFromForm()` — skips redundant session writes while dragging */
-let lastLivePreviewSerialized = '';
-let previewDebounceTimer: number | undefined;
-
-async function clearLivePreviewLocal(): Promise<void> {
-  try {
-    await chrome.storage.local.remove(STORAGE_TOPIC_NAV_APPEARANCE_LIVE_PREVIEW);
-  } catch {
-    /* ignore */
-  }
-}
-
-function bumpSerializedBaseline(): void {
-  lastLivePreviewSerialized = JSON.stringify(readFromForm());
-}
+const lblPresets = getEl('_lblPresets');
+const slot1Label = getEl('_slot1Label');
+const slot2Label = getEl('_slot2Label');
+const slot3Label = getEl('_slot3Label');
 
 function ux(lang: UiLangCode, key: UiStringKey, vars?: Record<string, string | number>): string {
   return t(lang, key, vars);
@@ -125,6 +126,18 @@ function applyChromeStrings(lang: UiLangCode): void {
   lblDotActiveBdW.textContent = ux(lang, 'dotActiveBorderWidth', {
     w: `${(Number(dotActiveBorderW.value) / 10).toFixed(1)}px`,
   });
+
+  lblPresets.textContent = ux(lang, 'presetSectionTitle');
+  loadDefaultPreset.textContent = ux(lang, 'btnLoadDefault');
+  slot1Label.textContent = ux(lang, 'presetSlotLabel', { n: 1 });
+  slot2Label.textContent = ux(lang, 'presetSlotLabel', { n: 2 });
+  slot3Label.textContent = ux(lang, 'presetSlotLabel', { n: 3 });
+  loadPreset1.textContent = ux(lang, 'btnLoadPreset', { n: 1 });
+  loadPreset2.textContent = ux(lang, 'btnLoadPreset', { n: 2 });
+  loadPreset3.textContent = ux(lang, 'btnLoadPreset', { n: 3 });
+  savePreset1.textContent = ux(lang, 'btnSaveToPreset', { n: 1 });
+  savePreset2.textContent = ux(lang, 'btnSaveToPreset', { n: 2 });
+  savePreset3.textContent = ux(lang, 'btnSaveToPreset', { n: 3 });
 
   saveBtn.textContent = ux(lang, 'btnSave');
   resetBtn.textContent = ux(lang, 'btnReset');
@@ -187,31 +200,8 @@ function syncSliderLabels(): void {
   applyChromeStrings(langForChrome());
 }
 
-function scheduleLivePreviewFlush(): void {
-  if (!chrome.storage.session?.set) return;
-  if (previewDebounceTimer !== undefined) window.clearTimeout(previewDebounceTimer);
-  previewDebounceTimer = window.setTimeout(() => {
-    previewDebounceTimer = undefined;
-    void (async () => {
-      try {
-        const payload = readFromForm();
-        const ser = JSON.stringify(payload);
-        if (ser === lastLivePreviewSerialized) return;
-        lastLivePreviewSerialized = ser;
-        await chrome.storage.session.set({
-          [STORAGE_TOPIC_NAV_APPEARANCE_LIVE_PREVIEW]: payload,
-        });
-      } catch {
-        /* ignore */
-      }
-    })();
-  }, 50);
-}
-
-/** Capsule/dot controls: update labels + push session preview */
 function onAppearanceFieldInput(): void {
   syncSliderLabels();
-  scheduleLivePreviewFlush();
 }
 
 const appearanceSliders: HTMLInputElement[] = [
@@ -242,13 +232,13 @@ dotStyle.addEventListener('change', onAppearanceFieldInput);
 
 localePref.addEventListener('change', () => void persistLocalePrefs());
 
-window.addEventListener('pagehide', (ev: PageTransitionEvent) => {
-  if (ev.persisted) return;
-  void clearLivePreviewLocal();
-});
+async function readPresetsBag(): Promise<ReturnType<typeof defaultAppearancePresets>> {
+  const bag = await chrome.storage.sync.get(STORAGE_TOPIC_NAV_APPEARANCE_PRESETS);
+  const raw = bag[STORAGE_TOPIC_NAV_APPEARANCE_PRESETS as keyof typeof bag];
+  return parseAppearancePresets(raw) ?? defaultAppearancePresets();
+}
 
 async function load(): Promise<void> {
-  await clearLivePreviewLocal();
   const bag = await chrome.storage.sync.get([STORAGE_TOPIC_NAV_APPEARANCE, STORAGE_TOPIC_NAV_UI]);
   const rawUi = bag[STORAGE_TOPIC_NAV_UI as keyof typeof bag];
   const ui = parseTopicNavUiStored(rawUi) ?? defaultUiPrefs();
@@ -257,8 +247,44 @@ async function load(): Promise<void> {
   const raw = bag[STORAGE_TOPIC_NAV_APPEARANCE as keyof typeof bag];
   const parsed = parseTopicNavAppearance(raw);
   hydrate(parsed ?? defaultTopicNavAppearance());
-  bumpSerializedBaseline();
 }
+
+loadDefaultPreset.addEventListener('click', () => {
+  status.textContent = '';
+  hydrate(defaultTopicNavAppearance());
+  status.textContent = ux(langForChrome(), 'presetLoadedDefault');
+});
+
+function wirePresetSlot(
+  index: 0 | 1 | 2,
+  loadBtn: HTMLButtonElement,
+  saveBtn: HTMLButtonElement,
+): void {
+  loadBtn.addEventListener('click', async () => {
+    status.textContent = '';
+    const presets = await readPresetsBag();
+    const slot = presets.slots[index];
+    if (!slot) {
+      status.textContent = ux(langForChrome(), 'presetEmpty', { n: index + 1 });
+      return;
+    }
+    const parsed = parseTopicNavAppearance(slot);
+    hydrate(parsed ?? defaultTopicNavAppearance());
+    status.textContent = ux(langForChrome(), 'presetLoaded', { n: index + 1 });
+  });
+
+  saveBtn.addEventListener('click', async () => {
+    status.textContent = '';
+    const cur = await readPresetsBag();
+    const next = setPresetSlot(cur, index, readFromForm());
+    await chrome.storage.sync.set({ [STORAGE_TOPIC_NAV_APPEARANCE_PRESETS]: next });
+    status.textContent = ux(langForChrome(), 'presetSaved', { n: index + 1 });
+  });
+}
+
+wirePresetSlot(0, loadPreset1, savePreset1);
+wirePresetSlot(1, loadPreset2, savePreset2);
+wirePresetSlot(2, loadPreset3, savePreset3);
 
 saveBtn.addEventListener('click', async () => {
   status.textContent = '';
@@ -267,18 +293,14 @@ saveBtn.addEventListener('click', async () => {
     [STORAGE_TOPIC_NAV_APPEARANCE]: next,
     [STORAGE_TOPIC_NAV_UI]: { v: 1, langPref: prefFromSelect() },
   });
-  await clearLivePreviewLocal();
-  lastLivePreviewSerialized = JSON.stringify(next);
   applyChromeStrings(langForChrome());
   status.textContent = ux(langForChrome(), 'savedStatus');
 });
 
 resetBtn.addEventListener('click', async () => {
   status.textContent = '';
-  await clearLivePreviewLocal();
   await chrome.storage.sync.remove(STORAGE_TOPIC_NAV_APPEARANCE as unknown as string);
   hydrate(defaultTopicNavAppearance());
-  bumpSerializedBaseline();
   status.textContent = ux(langForChrome(), 'resetStatus');
 });
 
