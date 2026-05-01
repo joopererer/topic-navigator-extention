@@ -10,6 +10,8 @@ export interface PlatformAdapter {
   getScrollRoot(doc: Document): HTMLElement | null;
   /** Optional container to observe with MutationObserver; defaults to scroll root or document.body */
   getObserveRoot(doc: Document): Element | null;
+  /** Pixels below the scroll container top when jumping to a user cue (smaller = tighter to top). */
+  scrollCueTopPaddingPx?: number;
 }
 
 /** Sync storage key for `<match_patterns>` rows (one per line) for self-hosted Onyx. */

@@ -56,6 +56,7 @@ function geminiFindTurnRoots(doc: Document): HTMLElement[] {
 
 export const geminiAdapter: PlatformAdapter = {
   id: 'gemini',
+  scrollCueTopPaddingPx: 40,
 
   matchesLocation(url: URL): boolean {
     return isGeminiConversation(url) || isAiStudioConversation(url);

@@ -7,8 +7,8 @@ const HOST_STYLE_ID = 'topic-navigator-host-styles';
 /** Minimum spacing between dot centers — scrollable rail grows when exceeded. */
 const MIN_DOT_SPACING_PX = 15;
 const STAGE_VERTICAL_PAD_PX = 10;
-/** Padding above the user prompt cue after programmatic scroll (avoid “clipped headline”). */
-const SCROLL_ABOVE_CUE_PX = 88;
+/** Default padding below scroll-container top when jumping to a cue (hosts may override). */
+const SCROLL_ABOVE_CUE_PX_DEFAULT = 88;
 
 const HOST_STYLES = `
 #${BAR_ID} {
@@ -557,6 +557,11 @@ export class TopicNavigatorCore {
     );
   }
 
+  private scrollCueTopPaddingPx(): number {
+    const v = this.adapter.scrollCueTopPaddingPx;
+    return typeof v === 'number' && Number.isFinite(v) ? Math.max(0, v) : SCROLL_ABOVE_CUE_PX_DEFAULT;
+  }
+
   /**
    * Maximise cue visibility in scrolling strip (+ fractional overlap) rather than outer card top crossing a band.
    */
@@ -934,7 +939,7 @@ export class TopicNavigatorCore {
       const relTop = cueRect.top - srRect.top + sr.scrollTop;
 
       if (i === 0) sr.scrollTo({ top: 0, behavior });
-      else sr.scrollTo({ top: Math.max(0, relTop - SCROLL_ABOVE_CUE_PX), behavior });
+      else sr.scrollTo({ top: Math.max(0, relTop - this.scrollCueTopPaddingPx()), behavior });
       return true;
     };
 
@@ -942,7 +947,7 @@ export class TopicNavigatorCore {
       if (i === 0) window.scrollTo({ top: 0, behavior });
       else {
         const cueY = cue.getBoundingClientRect().top + window.scrollY;
-        window.scrollTo({ top: Math.max(0, cueY - SCROLL_ABOVE_CUE_PX), behavior });
+        window.scrollTo({ top: Math.max(0, cueY - this.scrollCueTopPaddingPx()), behavior });
       }
     }
 

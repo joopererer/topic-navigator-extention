@@ -57,6 +57,7 @@ function getMessageRootBlock(el: HTMLElement): HTMLElement | null {
 
 export const claudeAdapter: PlatformAdapter = {
   id: 'claude',
+  scrollCueTopPaddingPx: 40,
 
   matchesLocation(url: URL): boolean {
     if (url.hostname !== 'claude.ai') return false;
