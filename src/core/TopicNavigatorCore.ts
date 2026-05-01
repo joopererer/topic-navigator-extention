@@ -370,13 +370,13 @@ export class TopicNavigatorCore {
     if (!this.bar?.isConnected) return;
     let chosen: unknown = syncRaw;
     try {
-      if (typeof chrome !== 'undefined' && chrome.storage?.session?.get) {
-        const s = await chrome.storage.session.get(STORAGE_TOPIC_NAV_APPEARANCE_LIVE_PREVIEW);
+      if (typeof chrome !== 'undefined' && chrome.storage?.local?.get) {
+        const s = await chrome.storage.local.get(STORAGE_TOPIC_NAV_APPEARANCE_LIVE_PREVIEW);
         const p = (s as Record<string, unknown>)[STORAGE_TOPIC_NAV_APPEARANCE_LIVE_PREVIEW];
         if (p !== undefined) chosen = p;
       }
     } catch {
-      /* session storage may be unavailable */
+      /* ignore */
     }
     let parsed = parseTopicNavAppearance(chosen);
     if (!parsed && chosen !== syncRaw && syncRaw !== undefined && syncRaw !== null) {

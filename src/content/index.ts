@@ -48,8 +48,8 @@ const unPatch = patchSpaNavigation(() => {
 });
 
 chrome.storage.onChanged.addListener((changes, area) => {
-  if (area === 'session') {
-    if (changes[STORAGE_TOPIC_NAV_APPEARANCE_LIVE_PREVIEW]) core?.applyStoredAppearanceOnly();
+  if (area === 'local' && STORAGE_TOPIC_NAV_APPEARANCE_LIVE_PREVIEW in changes) {
+    core?.applyStoredAppearanceOnly();
     return;
   }
   if (area !== 'sync') return;

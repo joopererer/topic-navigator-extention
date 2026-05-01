@@ -59,11 +59,9 @@ const lblLocaleHeading = getEl('_lblLocaleHeading');
 let lastLivePreviewSerialized = '';
 let previewDebounceTimer: number | undefined;
 
-async function clearLivePreviewSession(): Promise<void> {
+async function clearLivePreviewLocal(): Promise<void> {
   try {
-    if (chrome.storage.session?.remove) {
-      await chrome.storage.session.remove(STORAGE_TOPIC_NAV_APPEARANCE_LIVE_PREVIEW);
-    }
+    await chrome.storage.local.remove(STORAGE_TOPIC_NAV_APPEARANCE_LIVE_PREVIEW);
   } catch {
     /* ignore */
   }
@@ -246,11 +244,11 @@ localePref.addEventListener('change', () => void persistLocalePrefs());
 
 window.addEventListener('pagehide', (ev: PageTransitionEvent) => {
   if (ev.persisted) return;
-  void clearLivePreviewSession();
+  void clearLivePreviewLocal();
 });
 
 async function load(): Promise<void> {
-  await clearLivePreviewSession();
+  await clearLivePreviewLocal();
   const bag = await chrome.storage.sync.get([STORAGE_TOPIC_NAV_APPEARANCE, STORAGE_TOPIC_NAV_UI]);
   const rawUi = bag[STORAGE_TOPIC_NAV_UI as keyof typeof bag];
   const ui = parseTopicNavUiStored(rawUi) ?? defaultUiPrefs();
@@ -269,7 +267,7 @@ saveBtn.addEventListener('click', async () => {
     [STORAGE_TOPIC_NAV_APPEARANCE]: next,
     [STORAGE_TOPIC_NAV_UI]: { v: 1, langPref: prefFromSelect() },
   });
-  await clearLivePreviewSession();
+  await clearLivePreviewLocal();
   lastLivePreviewSerialized = JSON.stringify(next);
   applyChromeStrings(langForChrome());
   status.textContent = ux(langForChrome(), 'savedStatus');
@@ -277,7 +275,7 @@ saveBtn.addEventListener('click', async () => {
 
 resetBtn.addEventListener('click', async () => {
   status.textContent = '';
-  await clearLivePreviewSession();
+  await clearLivePreviewLocal();
   await chrome.storage.sync.remove(STORAGE_TOPIC_NAV_APPEARANCE as unknown as string);
   hydrate(defaultTopicNavAppearance());
   bumpSerializedBaseline();

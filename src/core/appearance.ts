@@ -4,7 +4,7 @@
 
 export const STORAGE_TOPIC_NAV_APPEARANCE = 'topicNav_appearance_v1' as const;
 
-/** Ephemeral draft (MV3 session storage) — live preview while popup is open; removed on dismiss unsaved */
+/** Ephemeral draft in `chrome.storage.local` — live preview while tweaking popup (cleared on save / close tab). */
 export const STORAGE_TOPIC_NAV_APPEARANCE_LIVE_PREVIEW = 'topicNav_appearance_live_preview_v1' as const;
 
 export type TopicNavDotStyle = 'solid' | 'hollow' | 'outline';
