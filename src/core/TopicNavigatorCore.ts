@@ -24,11 +24,11 @@ const HOST_STYLES = `
 /* FAB list button — floated beside the timeline (Voyager-style). */
 #${BAR_ID} .topic-nav-fab {
   position: fixed;
-  right: 38px;
+  right: 46px;
   top: clamp(104px, 38vh, 46vh);
   transform: translateY(-50%);
-  width: 32px;
-  height: 32px;
+  width: 30px;
+  height: 30px;
   border-radius: 10px;
   border: 1px solid color-mix(in srgb, CanvasText 18%, transparent);
   background: color-mix(in srgb, Canvas 90%, CanvasText 10%);
@@ -89,8 +89,8 @@ const HOST_STYLES = `
   position: fixed;
   top: 88px;
   bottom: 40px;
-  right: 6px;
-  width: 26px;
+  right: 18px;
+  width: 20px;
   z-index: 2147483001;
   pointer-events: auto;
   display: flex;
@@ -127,8 +127,8 @@ const HOST_STYLES = `
   left: 50%;
   top: 50%;
   transform: translate(-50%, -50%);
-  width: 12px;
-  height: 12px;
+  width: 10px;
+  height: 10px;
   padding: 0;
   border-radius: 999px;
   border: 1.5px solid color-mix(in srgb, CanvasText 32%, transparent);
@@ -271,6 +271,9 @@ export class TopicNavigatorCore {
 
   private lastSyncScrollRoot: HTMLElement | Document | null = null;
 
+  /** Removes scroll listeners tied to AbortController.abort() */
+  private conversationScrollCtl: AbortController | null = null;
+
   /** Outline panel overlay */
   private isPanelOpen = false;
   private fabButton: HTMLButtonElement | null = null;
@@ -297,6 +300,7 @@ export class TopicNavigatorCore {
   }
 
   destroy(): void {
+    this.detachConversationScrollListeners();
     this.clearViewportSyncTimers();
     window.removeEventListener('wheel', this.onWheelHideTip, { capture: true });
     if (this.debounceTimer) clearTimeout(this.debounceTimer);
@@ -338,6 +342,7 @@ export class TopicNavigatorCore {
       (document.scrollingElement as HTMLElement);
 
     if (!roots.length) {
+      this.detachConversationScrollListeners();
       this.bar?.remove();
       this.bar = null;
       this.resizeObserver?.disconnect();
@@ -367,6 +372,7 @@ export class TopicNavigatorCore {
     this.ensureBar();
     this.renderChrome();
     this.setupIntersection(syncRoot);
+    this.attachConversationScrollListeners(syncRoot);
 
     queueMicrotask(() => {
       this.measureAndLayoutDots();
@@ -394,6 +400,7 @@ export class TopicNavigatorCore {
   }
 
   private destroyExceptUi(): void {
+    this.detachConversationScrollListeners();
     this.clearViewportSyncTimers();
     if (this.debounceTimer) clearTimeout(this.debounceTimer);
     if (this.tooltipHideTimer) clearTimeout(this.tooltipHideTimer);
@@ -429,9 +436,87 @@ export class TopicNavigatorCore {
     this.viewportSyncTimers = [];
   }
 
+  private detachConversationScrollListeners(): void {
+    this.conversationScrollCtl?.abort();
+    this.conversationScrollCtl = null;
+  }
+
   /**
-   * Pick the active user-turn from scroll/viewport (“reading line”).
-   * IntersectionObserver can miss the initial frame — this aligns dots + outline on enter.
+   * Chat hosts often nest scrollable panes — sync must listen on each (esp. ChatGPT thread).
+   */
+  private attachConversationScrollListeners(scrollLike: HTMLElement | Document): void {
+    this.detachConversationScrollListeners();
+    if (!this.roots.length) return;
+
+    const ctl = new AbortController();
+    this.conversationScrollCtl = ctl;
+    const { signal } = ctl;
+
+    let rafScheduled = false;
+    const scheduleViewportSync = (): void => {
+      if (!this.bar?.isConnected || signal.aborted) return;
+      if (rafScheduled) return;
+      rafScheduled = true;
+      requestAnimationFrame(() => {
+        rafScheduled = false;
+        if (signal.aborted || !this.roots.length) return;
+        const sr = this.lastSyncScrollRoot ?? document.documentElement;
+        this.syncActiveFromViewport(sr);
+        this.scrollRailToShowActiveDot(false);
+      });
+    };
+
+    const scrollOpts: AddEventListenerOptions = { passive: true, capture: false, signal };
+    const targets = new Set<EventTarget>();
+
+    if (
+      scrollLike instanceof HTMLElement &&
+      scrollLike !== document.documentElement &&
+      scrollLike !== document.body
+    ) {
+      targets.add(scrollLike);
+
+      let n: HTMLElement | null = this.roots[0];
+      while (n && scrollLike.contains(n)) {
+        const oy = window.getComputedStyle(n).overflowY;
+        if (
+          (oy === 'auto' || oy === 'scroll' || oy === 'overlay') &&
+          n.scrollHeight > n.clientHeight + 6
+        ) {
+          targets.add(n);
+        }
+        n = n.parentElement;
+      }
+    }
+
+    targets.add(window);
+
+    for (const target of targets) {
+      target.addEventListener('scroll', scheduleViewportSync, scrollOpts);
+    }
+  }
+
+  private stripeIntersectPx(
+    rect: DOMRectReadOnly | DOMRect,
+    stripTop: number,
+    stripBottom: number,
+  ): number {
+    const top = Math.max(rect.top, stripTop);
+    const bot = Math.min(rect.bottom, stripBottom);
+    return Math.max(0, bot - top);
+  }
+
+  /** Prefer prose block over header chrome — turns activate when body starts to show */
+  private messageContentCue(el: HTMLElement): HTMLElement {
+    return (
+      el.querySelector<HTMLElement>(
+        '[data-message-content], [data-turn-copy], article .markdown, .markdown, .prose, .whitespace-pre-wrap',
+      ) ?? el
+    );
+  }
+
+  /**
+   * Maximise cue visibility in scrolling strip (+ fractional overlap) rather than outer card top crossing a band.
    */
   private computeActiveIndexNearViewport(scrollRootLike: HTMLElement | Document): number {
     if (!this.roots.length) return -1;
@@ -449,44 +534,52 @@ export class TopicNavigatorCore {
       stripBottom = br.bottom;
     }
 
-    /** Focus slightly above centre — mirrors prior IO root-margin intent */
-    const focusY = stripTop + (stripBottom - stripTop) * 0.38;
+    const stripeH = Math.max(80, stripBottom - stripTop);
+    let bestIdx = 0;
+    let bestScore = -Infinity;
+    let maxPixAll = -1;
 
-    const visibleStripe = (
-      rt: DOMRectReadOnly | DOMRect,
-    ): { insetH: number; top: number } => {
-      const intersectTop = Math.max(rt.top, stripTop);
-      const intersectBottom = Math.min(rt.bottom, stripBottom);
-      const insetH = intersectBottom > intersectTop ? intersectBottom - intersectTop : 0;
-      return { insetH, top: rt.top };
-    };
-
-    /** Scroll-spy: last turn whose top is still above the reading line (document order). */
-    let chosen = 0;
     for (let i = 0; i < this.roots.length; i++) {
-      const { top } = visibleStripe(this.roots[i].getBoundingClientRect());
-      if (top <= focusY + 10) chosen = i;
-      else break;
-    }
+      const root = this.roots[i];
+      const cueEl = this.messageContentCue(root);
+      const cueR = cueEl.getBoundingClientRect();
+      let pix = this.stripeIntersectPx(cueR, stripTop, stripBottom);
 
-    const firstTop = this.roots[0].getBoundingClientRect().top;
-    if (firstTop > focusY + 48) {
-      let bestH = -1;
-      let bestIdx = 0;
-      for (let i = 0; i < this.roots.length; i++) {
-        const { insetH } = visibleStripe(this.roots[i].getBoundingClientRect());
-        if (insetH > bestH) {
-          bestH = insetH;
-          bestIdx = i;
-        }
+      if (pix < 26 && cueEl !== root) {
+        const outerR = root.getBoundingClientRect();
+        pix = Math.max(pix, this.stripeIntersectPx(outerR, stripTop, stripBottom) * 0.42);
       }
-      if (bestH > 8) chosen = bestIdx;
+
+      maxPixAll = Math.max(maxPixAll, pix);
+
+      const h = Math.max(cueR.height, 28);
+      const frac = pix / Math.min(h, stripeH);
+      const score = pix * 200 + frac * 360;
+
+      if (score > bestScore + 6) {
+        bestScore = score;
+        bestIdx = i;
+      } else if (score >= bestScore - 14 && pix >= 12 && i > bestIdx) {
+        bestIdx = i;
+      }
     }
 
-    const lastRect = this.roots[this.roots.length - 1].getBoundingClientRect();
-    if (lastRect.bottom < stripTop + 24) chosen = this.roots.length - 1;
+    if (bestScore < 540 && maxPixAll < 64) {
+      const focus = stripTop + stripeH * 0.42;
+      let spy = 0;
+      for (let i = 0; i < this.roots.length; i++) {
+        const cueR = this.messageContentCue(this.roots[i]).getBoundingClientRect();
+        const lead = cueR.top + Math.min(Math.max(cueR.height * 0.06, 4), 16);
+        if (lead <= focus + 34) spy = i;
+        else break;
+      }
+      bestIdx = spy;
+    }
 
-    return Math.min(Math.max(chosen, 0), this.roots.length - 1);
+    const lastR = this.roots[this.roots.length - 1].getBoundingClientRect();
+    if (lastR.bottom <= stripBottom + 22 && maxPixAll < 48) bestIdx = this.roots.length - 1;
+
+    return Math.min(Math.max(bestIdx, 0), this.roots.length - 1);
   }
 
   private syncActiveFromViewport(scrollRootLike: HTMLElement | Document): void {
@@ -827,7 +920,11 @@ export class TopicNavigatorCore {
           this.highlightActive(bestIdx, true);
         }
       },
-      { root, rootMargin: '-20% 0px -55% 0px', threshold: [0.05, 0.25, 0.5, 1] },
+      {
+        root,
+        rootMargin: '-8% 0px -58% 0px',
+        threshold: [0, 0.02, 0.06, 0.14, 0.28, 0.48, 0.72, 1],
+      },
     );
 
     this.roots.forEach((r) => this.intersectionObserver?.observe(r));
