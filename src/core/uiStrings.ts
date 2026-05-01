@@ -17,6 +17,16 @@ export const UI = {
     zh: '减小对话区字体',
     fr: 'Réduire la police du chat',
   },
+  fabFontScaleResetTitle: {
+    en: 'Click to restore default size (100%)',
+    zh: '点击恢复默认大小（100%）',
+    fr: 'Clic pour la taille par défaut (100 %)',
+  },
+  fabFontScaleToastAria: {
+    en: 'Chat font scale {pct}% of default',
+    zh: '对话字体为默认的 {pct}%',
+    fr: 'Police du chat à {pct} % du défaut',
+  },
   turnAria: { en: 'Turn {n}', zh: '第 {n} 轮', fr: 'Tour {n}' },
   turnAriaWithPreview: { en: 'Turn {n}: {preview}', zh: '第 {n} 轮：{preview}', fr: 'Tour {n} : {preview}' },
   outlineRowAria: { en: 'Turn {n}: {text}', zh: '第 {n} 轮：{text}', fr: 'Tour {n} : {text}' },

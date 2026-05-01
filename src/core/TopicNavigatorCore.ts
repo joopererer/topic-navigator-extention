@@ -5,6 +5,7 @@ import {
   type TopicNavAppearanceStored,
 } from './appearance.js';
 import {
+  CHAT_FONT_SCALE_DEFAULT,
   CHAT_FONT_SCALE_MAX,
   CHAT_FONT_SCALE_MIN,
   CHAT_FONT_SCALE_STEP,
@@ -79,6 +80,61 @@ const HOST_STYLES = `
 }
 #${BAR_ID} .topic-nav-fab-stack > button {
   pointer-events: auto;
+}
+#${BAR_ID} .topic-nav-fab-font-row {
+  position: relative;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-end;
+  pointer-events: none;
+}
+#${BAR_ID} .topic-nav-fab-font-col {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  pointer-events: none;
+}
+#${BAR_ID} .topic-nav-fab-font-col > button {
+  pointer-events: auto;
+}
+#${BAR_ID} .topic-nav-font-scale-hint {
+  position: absolute;
+  right: calc(100% + 8px);
+  top: 50%;
+  transform: translateY(-50%);
+  margin: 0;
+  padding: 5px 9px;
+  min-width: 3.25em;
+  border-radius: 8px;
+  font-size: 11px;
+  font-weight: 650;
+  line-height: 1.2;
+  color: CanvasText;
+  background: var(--tn-stage-bg);
+  border: 1px solid var(--tn-stage-border);
+  box-shadow: 0 4px 14px rgba(0,0,0,0.14);
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity .2s ease, visibility .2s ease;
+  pointer-events: none;
+  white-space: nowrap;
+  text-align: center;
+  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  cursor: default;
+  -webkit-appearance: none;
+  appearance: none;
+}
+#${BAR_ID} .topic-nav-font-scale-hint.topic-nav-font-scale-hint--visible {
+  opacity: 1;
+  visibility: visible;
+}
+#${BAR_ID} .topic-nav-font-scale-hint.topic-nav-font-scale-hint--visible.topic-nav-font-scale-hint--resettable {
+  pointer-events: auto;
+  cursor: pointer;
+}
+#${BAR_ID} .topic-nav-font-scale-hint.topic-nav-font-scale-hint--visible.topic-nav-font-scale-hint--resettable:hover {
+  filter: brightness(0.94);
 }
 #${BAR_ID} .topic-nav-fab {
   position: relative;
@@ -372,6 +428,8 @@ export class TopicNavigatorCore {
   private fabStack: HTMLElement | null = null;
   private chatFontPlusBtn: HTMLButtonElement | null = null;
   private chatFontMinusBtn: HTMLButtonElement | null = null;
+  private chatFontHintEl: HTMLButtonElement | null = null;
+  private chatFontHintTimer: number | undefined;
   private chatFontScale = 1;
   private stageEl: HTMLElement | null = null;
   private stageInner: HTMLElement | null = null;
@@ -474,6 +532,47 @@ export class TopicNavigatorCore {
     }
     this.applyChatFontStyleToPage(this.chatFontScale);
     this.syncChatFontButtons();
+    this.showChatFontPercentFeedback();
+  }
+
+  private clearChatFontHintTimer(): void {
+    if (this.chatFontHintTimer !== undefined) {
+      window.clearTimeout(this.chatFontHintTimer);
+      this.chatFontHintTimer = undefined;
+    }
+  }
+
+  private showChatFontPercentFeedback(): void {
+    const el = this.chatFontHintEl;
+    if (!el) return;
+    const pct = Math.round(this.chatFontScale * 100);
+    el.textContent = `${pct}%`;
+    const atDefault = Math.abs(this.chatFontScale - 1) < 1e-9;
+    el.classList.toggle('topic-nav-font-scale-hint--resettable', !atDefault);
+    el.setAttribute('aria-label', this.ux('fabFontScaleToastAria', { pct }));
+    if (atDefault) el.removeAttribute('title');
+    else el.setAttribute('title', this.ux('fabFontScaleResetTitle'));
+    el.classList.add('topic-nav-font-scale-hint--visible');
+    this.clearChatFontHintTimer();
+    this.chatFontHintTimer = window.setTimeout(() => {
+      el.classList.remove('topic-nav-font-scale-hint--visible');
+      this.chatFontHintTimer = undefined;
+    }, 2600);
+  }
+
+  private async resetChatFontScaleToDefault(): Promise<void> {
+    if (Math.abs(this.chatFontScale - CHAT_FONT_SCALE_DEFAULT) < 1e-9) return;
+    this.chatFontScale = CHAT_FONT_SCALE_DEFAULT;
+    try {
+      if (typeof chrome !== 'undefined' && chrome.storage?.sync?.set) {
+        await chrome.storage.sync.set({ [STORAGE_CHAT_FONT_SCALE]: CHAT_FONT_SCALE_DEFAULT });
+      }
+    } catch {
+      /* ignore */
+    }
+    this.applyChatFontStyleToPage(this.chatFontScale);
+    this.syncChatFontButtons();
+    this.showChatFontPercentFeedback();
   }
 
   /** Re-read font scale from sync (e.g. after storage event or tab sync). */
@@ -531,6 +630,7 @@ export class TopicNavigatorCore {
   destroy(): void {
     this.detachConversationScrollListeners();
     this.clearViewportSyncTimers();
+    this.clearChatFontHintTimer();
     window.removeEventListener('wheel', this.onWheelHideTip, { capture: true });
     if (this.debounceTimer) clearTimeout(this.debounceTimer);
     if (this.tooltipHideTimer) clearTimeout(this.tooltipHideTimer);
@@ -554,6 +654,7 @@ export class TopicNavigatorCore {
     this.fabStack = null;
     this.chatFontPlusBtn = null;
     this.chatFontMinusBtn = null;
+    this.chatFontHintEl = null;
     this.stageEl = null;
     this.stageInner = null;
     document.getElementById(HOST_STYLE_ID)?.remove();
@@ -580,6 +681,7 @@ export class TopicNavigatorCore {
       (document.scrollingElement as HTMLElement);
 
     if (!roots.length) {
+      this.clearChatFontHintTimer();
       this.detachConversationScrollListeners();
       this.bar?.remove();
       this.bar = null;
@@ -593,6 +695,7 @@ export class TopicNavigatorCore {
       this.fabStack = null;
       this.chatFontPlusBtn = null;
       this.chatFontMinusBtn = null;
+      this.chatFontHintEl = null;
       this.stageEl = null;
       this.stageInner = null;
       this.dots = [];
@@ -646,6 +749,7 @@ export class TopicNavigatorCore {
   private destroyExceptUi(): void {
     this.detachConversationScrollListeners();
     this.clearViewportSyncTimers();
+    this.clearChatFontHintTimer();
     if (this.debounceTimer) clearTimeout(this.debounceTimer);
     if (this.tooltipHideTimer) clearTimeout(this.tooltipHideTimer);
     this.mutationObserver?.disconnect();
@@ -668,6 +772,7 @@ export class TopicNavigatorCore {
     this.fabStack = null;
     this.chatFontPlusBtn = null;
     this.chatFontMinusBtn = null;
+    this.chatFontHintEl = null;
     this.stageEl = null;
     this.stageInner = null;
     this.roots = [];
@@ -1043,6 +1148,7 @@ export class TopicNavigatorCore {
 
   private renderChrome(): void {
     if (!this.bar) return;
+    this.clearChatFontHintTimer();
     this.resizeObserver?.disconnect();
     const keepTip = this.floatingTip;
     this.bar.replaceChildren();
@@ -1139,9 +1245,30 @@ export class TopicNavigatorCore {
     });
     this.chatFontMinusBtn = btnMinus;
 
+    const fontRow = document.createElement('div');
+    fontRow.className = 'topic-nav-fab-font-row';
+
+    const hint = document.createElement('button');
+    hint.type = 'button';
+    hint.className = 'topic-nav-font-scale-hint';
+    hint.setAttribute('aria-live', 'polite');
+    hint.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (Math.abs(this.chatFontScale - CHAT_FONT_SCALE_DEFAULT) < 1e-9) return;
+      void this.resetChatFontScaleToDefault();
+    });
+    this.chatFontHintEl = hint;
+
+    const fontCol = document.createElement('div');
+    fontCol.className = 'topic-nav-fab-font-col';
+    fontCol.appendChild(btnPlus);
+    fontCol.appendChild(btnMinus);
+
+    fontRow.appendChild(fontCol);
+    fontRow.appendChild(hint);
+
     fabStack.appendChild(fab);
-    fabStack.appendChild(btnPlus);
-    fabStack.appendChild(btnMinus);
+    fabStack.appendChild(fontRow);
 
     const stageShell = document.createElement('div');
     stageShell.className = 'topic-nav-stage-shell';
