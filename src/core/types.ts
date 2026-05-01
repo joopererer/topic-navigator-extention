@@ -12,6 +12,10 @@ export interface PlatformAdapter {
   getObserveRoot(doc: Document): Element | null;
   /** Pixels below the scroll container top when jumping to a user cue (smaller = tighter to top). */
   scrollCueTopPaddingPx?: number;
+  /**
+   * CSS selectors for the main conversation column (first match is used). Used with `zoom` for chat font scaling.
+   */
+  getChatFontScopeSelectors?(doc: Document): readonly string[];
 }
 
 /** Sync storage key for `<match_patterns>` rows (one per line) for self-hosted Onyx. */

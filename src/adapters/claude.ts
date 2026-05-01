@@ -85,4 +85,8 @@ export const claudeAdapter: PlatformAdapter = {
   getObserveRoot(doc: Document): Element | null {
     return doc.querySelector('main') ?? claudeAdapter.getScrollRoot(doc) ?? doc.body;
   },
+
+  getChatFontScopeSelectors(_doc: Document): readonly string[] {
+    return ['main[class*="chat"]', 'main'];
+  },
 };

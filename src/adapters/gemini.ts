@@ -83,4 +83,8 @@ export const geminiAdapter: PlatformAdapter = {
       doc.body;
     return root;
   },
+
+  getChatFontScopeSelectors(_doc: Document): readonly string[] {
+    return ['main.chat-main', 'main[class*="conversation"]', 'main'];
+  },
 };

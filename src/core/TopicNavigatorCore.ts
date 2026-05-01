@@ -4,6 +4,15 @@ import {
   parseTopicNavAppearance,
   type TopicNavAppearanceStored,
 } from './appearance.js';
+import {
+  CHAT_FONT_SCALE_MAX,
+  CHAT_FONT_SCALE_MIN,
+  CHAT_FONT_SCALE_STEP,
+  clampChatFontScale,
+  parseChatFontScale,
+  STORAGE_CHAT_FONT_SCALE,
+} from './chatFontScale.js';
+import { resolveChatFontScopeSelector } from './chatFontScope.js';
 import { extractTurnPreview, getScrollParent } from './domUtils.js';
 import {
   STORAGE_TOPIC_NAV_UI,
@@ -18,6 +27,7 @@ import type { PlatformAdapter } from './types.js';
 const BAR_ID = 'topic-navigator-bar';
 const HOST_STYLE_ID = 'topic-navigator-host-styles';
 const USER_APPEARANCE_STYLE_ID = 'topic-navigator-appearance-styles';
+const CHAT_FONT_STYLE_ID = 'topic-nav-chat-font';
 
 /** Inline HTML attribute escapes for localized search field */
 function escapeAttr(s: string): string {
@@ -54,12 +64,25 @@ const HOST_STYLES = `
   box-sizing: border-box;
 }
 
-/* FAB list button — floated beside the timeline (Voyager-style). */
-#${BAR_ID} .topic-nav-fab {
+/* FAB stack — list + font +/- beside the timeline */
+#${BAR_ID} .topic-nav-fab-stack {
   position: fixed;
   right: 46px;
   top: clamp(104px, 38vh, 46vh);
   transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  z-index: 2147483002;
+  pointer-events: none;
+}
+#${BAR_ID} .topic-nav-fab-stack > button {
+  pointer-events: auto;
+}
+#${BAR_ID} .topic-nav-fab {
+  position: relative;
+  transform: none;
   width: 30px;
   height: 30px;
   border-radius: 10px;
@@ -71,11 +94,31 @@ const HOST_STYLES = `
   align-items: center;
   justify-content: center;
   box-shadow: 0 6px 22px rgba(0,0,0,0.16);
-  pointer-events: auto;
-  z-index: 2147483002;
 }
-#${BAR_ID} .topic-nav-fab:hover {
+#${BAR_ID} .topic-nav-fab:hover:not(:disabled),
+#${BAR_ID} .topic-nav-fab--small:hover:not(:disabled) {
   filter: brightness(0.94);
+}
+#${BAR_ID} .topic-nav-fab:disabled,
+#${BAR_ID} .topic-nav-fab--small:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+#${BAR_ID} .topic-nav-fab--small {
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  border: 1px solid var(--tn-stage-border);
+  background: var(--tn-stage-bg);
+  color: CanvasText;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.12);
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 /* Full-screen overlay layer for outline panel */
@@ -326,6 +369,10 @@ export class TopicNavigatorCore {
   /** Outline panel overlay */
   private isPanelOpen = false;
   private fabButton: HTMLButtonElement | null = null;
+  private fabStack: HTMLElement | null = null;
+  private chatFontPlusBtn: HTMLButtonElement | null = null;
+  private chatFontMinusBtn: HTMLButtonElement | null = null;
+  private chatFontScale = 1;
   private stageEl: HTMLElement | null = null;
   private stageInner: HTMLElement | null = null;
 
@@ -361,11 +408,77 @@ export class TopicNavigatorCore {
     tag.textContent = buildTopicNavAppearanceStyle(a);
   }
 
+  private removeChatFontStyle(): void {
+    document.getElementById(CHAT_FONT_STYLE_ID)?.remove();
+  }
+
+  /** Applies `zoom` on the adapter’s chat scope (host page only). */
+  private applyChatFontStyleToPage(scale: number): void {
+    const sel = resolveChatFontScopeSelector(document, this.adapter);
+    if (!sel || Math.abs(scale - 1) < 1e-9) {
+      this.removeChatFontStyle();
+      return;
+    }
+    let tag = document.getElementById(CHAT_FONT_STYLE_ID);
+    if (!tag) {
+      tag = document.createElement('style');
+      tag.id = CHAT_FONT_STYLE_ID;
+      document.head.appendChild(tag);
+    }
+    tag.textContent = `${sel} { zoom: ${scale}; }`;
+  }
+
+  private syncChatFontButtons(): void {
+    const s = this.chatFontScale;
+    if (this.chatFontPlusBtn) {
+      this.chatFontPlusBtn.disabled = s >= CHAT_FONT_SCALE_MAX - 1e-9;
+    }
+    if (this.chatFontMinusBtn) {
+      this.chatFontMinusBtn.disabled = s <= CHAT_FONT_SCALE_MIN + 1e-9;
+    }
+  }
+
+  private async nudgeChatFontScale(delta: number): Promise<void> {
+    const next = clampChatFontScale(this.chatFontScale + delta);
+    this.chatFontScale = next;
+    try {
+      if (typeof chrome !== 'undefined' && chrome.storage?.sync?.set) {
+        await chrome.storage.sync.set({ [STORAGE_CHAT_FONT_SCALE]: next });
+      }
+    } catch {
+      /* ignore */
+    }
+    this.applyChatFontStyleToPage(this.chatFontScale);
+    this.syncChatFontButtons();
+  }
+
+  /** Re-read font scale from sync (e.g. after storage event or tab sync). */
+  refreshChatFontFromStorage(): void {
+    void this.hydrateChatFontScaleOnly();
+  }
+
+  private async hydrateChatFontScaleOnly(): Promise<void> {
+    try {
+      if (typeof chrome === 'undefined' || !chrome.storage?.sync?.get) return;
+      const bag = await chrome.storage.sync.get(STORAGE_CHAT_FONT_SCALE);
+      const raw = bag[STORAGE_CHAT_FONT_SCALE as keyof typeof bag];
+      this.chatFontScale = parseChatFontScale(raw);
+      this.applyChatFontStyleToPage(this.chatFontScale);
+      this.syncChatFontButtons();
+    } catch {
+      /* ignore */
+    }
+  }
+
   /** Language + capsule/dot theme from chrome.storage.sync (requires `this.bar`). */
   private async hydrateSyncedSettings(): Promise<void> {
     try {
       if (typeof chrome === 'undefined' || !chrome.storage?.sync?.get) return;
-      const bag = await chrome.storage.sync.get([STORAGE_TOPIC_NAV_APPEARANCE, STORAGE_TOPIC_NAV_UI]);
+      const bag = await chrome.storage.sync.get([
+        STORAGE_TOPIC_NAV_APPEARANCE,
+        STORAGE_TOPIC_NAV_UI,
+        STORAGE_CHAT_FONT_SCALE,
+      ]);
       const rawUi = bag[STORAGE_TOPIC_NAV_UI as keyof typeof bag];
       const prefs = parseTopicNavUiStored(rawUi) ?? defaultUiPrefs();
       this.uiLang = resolveUiLang(prefs.langPref);
@@ -373,6 +486,9 @@ export class TopicNavigatorCore {
       const parsed = parseTopicNavAppearance(rawA);
       if (!parsed) this.clearUserAppearance();
       else this.applyUserAppearanceSync(parsed);
+      const rawFont = bag[STORAGE_CHAT_FONT_SCALE as keyof typeof bag];
+      this.chatFontScale = parseChatFontScale(rawFont);
+      this.applyChatFontStyleToPage(this.chatFontScale);
     } catch {
       /* ignore */
     }
@@ -411,10 +527,14 @@ export class TopicNavigatorCore {
     this.overlayEl = null;
     this.floatingTip = null;
     this.fabButton = null;
+    this.fabStack = null;
+    this.chatFontPlusBtn = null;
+    this.chatFontMinusBtn = null;
     this.stageEl = null;
     this.stageInner = null;
     document.getElementById(HOST_STYLE_ID)?.remove();
     document.getElementById(USER_APPEARANCE_STYLE_ID)?.remove();
+    this.removeChatFontStyle();
   }
 
   refresh(): void {
@@ -446,12 +566,16 @@ export class TopicNavigatorCore {
       this.overlayEl = null;
       this.floatingTip = null;
       this.fabButton = null;
+      this.fabStack = null;
+      this.chatFontPlusBtn = null;
+      this.chatFontMinusBtn = null;
       this.stageEl = null;
       this.stageInner = null;
       this.dots = [];
       this.previewStrings = [];
       this.intersectionObserver?.disconnect();
       this.intersectionObserver = null;
+      this.removeChatFontStyle();
       return;
     }
 
@@ -517,6 +641,9 @@ export class TopicNavigatorCore {
     this.overlayEl = null;
     this.floatingTip = null;
     this.fabButton = null;
+    this.fabStack = null;
+    this.chatFontPlusBtn = null;
+    this.chatFontMinusBtn = null;
     this.stageEl = null;
     this.stageInner = null;
     this.roots = [];
@@ -525,6 +652,7 @@ export class TopicNavigatorCore {
     this.activeIndex = -1;
     this.isPanelOpen = false;
     this.lastSyncScrollRoot = null;
+    this.removeChatFontStyle();
   }
 
   private clearViewportSyncTimers(): void {
@@ -936,6 +1064,10 @@ export class TopicNavigatorCore {
     query.addEventListener('keydown', (e) => e.stopPropagation());
     backdrop.addEventListener('keydown', (e) => e.stopPropagation());
 
+    const fabStack = document.createElement('div');
+    fabStack.className = 'topic-nav-fab-stack';
+    this.fabStack = fabStack;
+
     const fab = document.createElement('button');
     fab.type = 'button';
     fab.className = 'topic-nav-fab';
@@ -960,6 +1092,32 @@ export class TopicNavigatorCore {
       fab.setAttribute('aria-expanded', this.isPanelOpen ? 'true' : 'false');
     });
     this.fabButton = fab;
+
+    const btnPlus = document.createElement('button');
+    btnPlus.type = 'button';
+    btnPlus.className = 'topic-nav-fab topic-nav-fab--small';
+    btnPlus.setAttribute('aria-label', this.ux('fabFontIncrease'));
+    btnPlus.textContent = '+';
+    btnPlus.addEventListener('click', (e) => {
+      e.stopPropagation();
+      void this.nudgeChatFontScale(CHAT_FONT_SCALE_STEP);
+    });
+    this.chatFontPlusBtn = btnPlus;
+
+    const btnMinus = document.createElement('button');
+    btnMinus.type = 'button';
+    btnMinus.className = 'topic-nav-fab topic-nav-fab--small';
+    btnMinus.setAttribute('aria-label', this.ux('fabFontDecrease'));
+    btnMinus.textContent = '\u2212';
+    btnMinus.addEventListener('click', (e) => {
+      e.stopPropagation();
+      void this.nudgeChatFontScale(-CHAT_FONT_SCALE_STEP);
+    });
+    this.chatFontMinusBtn = btnMinus;
+
+    fabStack.appendChild(fab);
+    fabStack.appendChild(btnPlus);
+    fabStack.appendChild(btnMinus);
 
     const stageShell = document.createElement('div');
     stageShell.className = 'topic-nav-stage-shell';
@@ -996,8 +1154,10 @@ export class TopicNavigatorCore {
     sheet.addEventListener('click', (e) => e.stopPropagation());
 
     this.bar.appendChild(overlay);
-    this.bar.appendChild(fab);
+    this.bar.appendChild(fabStack);
     this.bar.appendChild(stageShell);
+
+    this.syncChatFontButtons();
 
     this.attachStageResizeObserver();
     queueMicrotask(() => this.measureAndLayoutDots());

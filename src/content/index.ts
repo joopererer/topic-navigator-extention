@@ -1,4 +1,5 @@
 import { STORAGE_TOPIC_NAV_APPEARANCE } from '../core/appearance.js';
+import { STORAGE_CHAT_FONT_SCALE } from '../core/chatFontScale.js';
 import { STORAGE_TOPIC_NAV_UI } from '../core/uiPrefs.js';
 import { TopicNavigatorCore } from '../core/TopicNavigatorCore.js';
 import { patchSpaNavigation } from '../core/spaRouter.js';
@@ -48,6 +49,7 @@ chrome.storage.onChanged.addListener((changes, area) => {
   if (area !== 'sync') return;
   if (changes[STORAGE_CUSTOM_ONYX]) scheduleBoot();
   if (changes[STORAGE_TOPIC_NAV_APPEARANCE] || changes[STORAGE_TOPIC_NAV_UI]) core?.refresh();
+  if (changes[STORAGE_CHAT_FONT_SCALE]) core?.refreshChatFontFromStorage();
 });
 
 window.addEventListener(

@@ -67,5 +67,9 @@ export function createOnyxAdapter(extraHosts: Set<string>): PlatformAdapter {
       const scroll = scrollRootFromDoc(doc);
       return scroll?.parentElement ?? doc.querySelector('main') ?? doc.body;
     },
+
+    getChatFontScopeSelectors(_doc: Document): readonly string[] {
+      return ['[class*="ChatScroll"]', 'main'];
+    },
   };
 }

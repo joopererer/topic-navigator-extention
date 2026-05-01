@@ -7,6 +7,16 @@ export const UI = {
   outlineDialogAria: { en: 'Conversation outline', zh: '会话大纲', fr: 'Plan de la conversation' },
   fabOpenList: { en: 'Open turn list', zh: '打开轮次列表', fr: 'Ouvrir la liste des tours' },
   fabCloseList: { en: 'Close turn list', zh: '关闭轮次列表', fr: 'Fermer la liste des tours' },
+  fabFontIncrease: {
+    en: 'Increase chat font size',
+    zh: '增大对话区字体',
+    fr: 'Agrandir la police du chat',
+  },
+  fabFontDecrease: {
+    en: 'Decrease chat font size',
+    zh: '减小对话区字体',
+    fr: 'Réduire la police du chat',
+  },
   turnAria: { en: 'Turn {n}', zh: '第 {n} 轮', fr: 'Tour {n}' },
   turnAriaWithPreview: { en: 'Turn {n}: {preview}', zh: '第 {n} 轮：{preview}', fr: 'Tour {n} : {preview}' },
   outlineRowAria: { en: 'Turn {n}: {text}', zh: '第 {n} 轮：{text}', fr: 'Tour {n} : {text}' },

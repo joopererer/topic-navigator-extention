@@ -91,4 +91,8 @@ export const chatgptAdapter: PlatformAdapter = {
   getObserveRoot(doc: Document): Element | null {
     return doc.querySelector('main') ?? doc.body;
   },
+
+  getChatFontScopeSelectors(_doc: Document): readonly string[] {
+    return ['div[class*="react-scroll-to-bottom"]', 'main'];
+  },
 };
