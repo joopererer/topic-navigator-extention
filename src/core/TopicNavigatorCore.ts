@@ -1,8 +1,15 @@
+import {
+  STORAGE_TOPIC_NAV_APPEARANCE,
+  buildTopicNavAppearanceStyle,
+  parseTopicNavAppearance,
+  type TopicNavAppearanceStored,
+} from './appearance.js';
 import { extractTurnPreview, getScrollParent } from './domUtils.js';
 import type { PlatformAdapter } from './types.js';
 
 const BAR_ID = 'topic-navigator-bar';
 const HOST_STYLE_ID = 'topic-navigator-host-styles';
+const USER_APPEARANCE_STYLE_ID = 'topic-navigator-appearance-styles';
 
 /** Minimum spacing between dot centers — scrollable rail grows when exceeded. */
 const MIN_DOT_SPACING_PX = 15;
@@ -18,6 +25,15 @@ const HOST_STYLES = `
   pointer-events: none;
   font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
   font-size: 13px;
+
+  --tn-shell-width: 20px;
+  --tn-stage-bg: color-mix(in srgb, Canvas 88%, CanvasText 10%);
+  --tn-stage-border: color-mix(in srgb, CanvasText 14%, transparent);
+  --tn-dot-size: 10px;
+  --tn-dot-bg: color-mix(in srgb, Canvas 55%, CanvasText 10%);
+  --tn-dot-border: color-mix(in srgb, CanvasText 32%, transparent);
+  --tn-dot-active-bg: #2563eb;
+  --tn-dot-active-border: color-mix(in srgb, #2563eb 55%, CanvasText);
 }
 #${BAR_ID} * {
   box-sizing: border-box;
@@ -92,7 +108,7 @@ const HOST_STYLES = `
   top: 88px;
   bottom: 40px;
   right: 18px;
-  width: 20px;
+  width: var(--tn-shell-width);
   z-index: 2147483001;
   pointer-events: auto;
   display: flex;
@@ -105,8 +121,8 @@ const HOST_STYLES = `
   width: 100%;
   min-height: 120px;
   border-radius: 999px;
-  background: color-mix(in srgb, Canvas 88%, CanvasText 10%);
-  border: 1px solid color-mix(in srgb, CanvasText 14%, transparent);
+  background: var(--tn-stage-bg);
+  border: 1px solid var(--tn-stage-border);
   box-shadow: 0 6px 24px rgba(0,0,0,0.15);
   overflow-y: auto;
   overflow-x: hidden;
@@ -129,22 +145,31 @@ const HOST_STYLES = `
   left: 50%;
   top: 50%;
   transform: translate(-50%, -50%);
-  width: 10px;
-  height: 10px;
+  width: var(--tn-dot-size);
+  height: var(--tn-dot-size);
   padding: 0;
   border-radius: 999px;
-  border: 1.5px solid color-mix(in srgb, CanvasText 32%, transparent);
-  background: color-mix(in srgb, Canvas 55%, CanvasText 10%);
+  border: 1.5px solid var(--tn-dot-border);
+  background: var(--tn-dot-bg);
   cursor: pointer;
   flex-shrink: 0;
   transition: transform 0.12s ease, background 0.12s ease, border-color 0.12s ease;
+}
+#${BAR_ID}[data-tn-dot-style="hollow"] .topic-nav-dot:not(.topic-nav-dot--active) {
+  background: transparent;
+  border-width: 2px;
+}
+#${BAR_ID}[data-tn-dot-style="outline"] .topic-nav-dot:not(.topic-nav-dot--active) {
+  background: transparent;
+  border-width: 2.5px;
+  border-style: solid;
 }
 #${BAR_ID} .topic-nav-dot:hover {
   transform: translate(-50%, -50%) scale(1.2);
 }
 #${BAR_ID} .topic-nav-dot.topic-nav-dot--active {
-  background: #2563eb;
-  border-color: color-mix(in srgb, #2563eb 55%, CanvasText);
+  background: var(--tn-dot-active-bg);
+  border-color: var(--tn-dot-active-border);
   transform: translate(-50%, -50%) scale(1.3);
 }
 
@@ -238,9 +263,9 @@ const HOST_STYLES = `
   visibility: visible;
 }
 @media (prefers-color-scheme: dark) {
-  #${BAR_ID} .topic-nav-dot.topic-nav-dot--active {
-    background: #60a5fa;
-    border-color: color-mix(in srgb, #60a5fa 55%, CanvasText);
+  #${BAR_ID} {
+    --tn-dot-active-bg: #60a5fa;
+    --tn-dot-active-border: color-mix(in srgb, #60a5fa 55%, CanvasText);
   }
   #${BAR_ID} .topic-nav-summary-row.topic-nav-summary-row--active {
     background: color-mix(in srgb, #60a5fa 16%, transparent);
@@ -291,6 +316,48 @@ export class TopicNavigatorCore {
     this.adapter = adapter;
   }
 
+  /** Apply appearance from `chrome.storage.sync` without rebuilding the navigator. */
+  reloadAppearance(): void {
+    void this.refreshUserAppearance();
+  }
+
+  private clearUserAppearance(): void {
+    this.bar?.removeAttribute('data-tn-dot-style');
+    document.getElementById(USER_APPEARANCE_STYLE_ID)?.remove();
+  }
+
+  private applyUserAppearanceSync(a: TopicNavAppearanceStored): void {
+    const bar = this.bar;
+    if (!bar) return;
+    if (a.dotStyle === 'solid') bar.removeAttribute('data-tn-dot-style');
+    else bar.dataset.tnDotStyle = a.dotStyle;
+    let tag = document.getElementById(USER_APPEARANCE_STYLE_ID);
+    if (!tag) {
+      tag = document.createElement('style');
+      tag.id = USER_APPEARANCE_STYLE_ID;
+      document.head.appendChild(tag);
+    }
+    tag.textContent = buildTopicNavAppearanceStyle(a);
+  }
+
+  private async refreshUserAppearance(): Promise<void> {
+    try {
+      if (typeof chrome === 'undefined' || !chrome.storage?.sync?.get) {
+        return;
+      }
+      const bag = await chrome.storage.sync.get(STORAGE_TOPIC_NAV_APPEARANCE);
+      const raw = bag[STORAGE_TOPIC_NAV_APPEARANCE as keyof typeof bag];
+      const parsed = parseTopicNavAppearance(raw);
+      if (!parsed) {
+        this.clearUserAppearance();
+        return;
+      }
+      this.applyUserAppearanceSync(parsed);
+    } catch {
+      /* ignore */
+    }
+  }
+
   start(): void {
     this.mountStyles();
     this.mutationObserver?.disconnect();
@@ -327,6 +394,7 @@ export class TopicNavigatorCore {
     this.stageEl = null;
     this.stageInner = null;
     document.getElementById(HOST_STYLE_ID)?.remove();
+    document.getElementById(USER_APPEARANCE_STYLE_ID)?.remove();
   }
 
   refresh(): void {
@@ -372,6 +440,7 @@ export class TopicNavigatorCore {
     this.lastSyncScrollRoot = syncRoot;
 
     this.ensureBar();
+    void this.refreshUserAppearance();
     this.renderChrome();
     this.setupIntersection(syncRoot);
     this.attachConversationScrollListeners(syncRoot);

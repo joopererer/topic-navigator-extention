@@ -4,6 +4,10 @@
   "version": "1.0.0",
   "description": "Jump between conversation turns on ChatGPT, Gemini, Claude, Onyx, and custom Onyx hosts.",
   "permissions": ["storage", "scripting"],
+  "action": {
+    "default_title": "Topic Navigator · 样式与跳转",
+    "default_popup": "popup.html"
+  },
   "host_permissions": [
     "https://chatgpt.com/*",
     "https://chat.openai.com/*",
