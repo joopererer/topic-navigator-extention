@@ -87,6 +87,15 @@ export const claudeAdapter: PlatformAdapter = {
   },
 
   getChatFontScopeSelectors(_doc: Document): readonly string[] {
-    return ['main[class*="chat"]', 'main'];
+    // Match scroll column first (same intent as getScrollRoot); avoid lone `main` when
+    // Claude uses a plain <main> shell or class casing differs from "chat".
+    return [
+      'div[class*="ChatScroll"]',
+      '[class*="ChatScrollContainer"]',
+      'main[class*="Chat"]',
+      'main[class*="chat"]',
+      '[data-testid="conversation-container"]',
+      'main',
+    ];
   },
 };

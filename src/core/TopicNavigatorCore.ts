@@ -408,24 +408,48 @@ export class TopicNavigatorCore {
     tag.textContent = buildTopicNavAppearanceStyle(a);
   }
 
+  /** When inject CSS cannot target the chat column (no stable selector), set zoom on scroll root. */
+  private chatFontZoomInlineEl: HTMLElement | null = null;
+
+  private clearChatFontZoomTarget(): void {
+    this.chatFontZoomInlineEl?.style.removeProperty('zoom');
+    this.chatFontZoomInlineEl = null;
+  }
+
   private removeChatFontStyle(): void {
+    this.clearChatFontZoomTarget();
     document.getElementById(CHAT_FONT_STYLE_ID)?.remove();
   }
 
   /** Applies `zoom` on the adapter’s chat scope (host page only). */
   private applyChatFontStyleToPage(scale: number): void {
-    const sel = resolveChatFontScopeSelector(document, this.adapter);
-    if (!sel || Math.abs(scale - 1) < 1e-9) {
+    this.clearChatFontZoomTarget();
+    if (Math.abs(scale - 1) < 1e-9) {
       this.removeChatFontStyle();
       return;
     }
-    let tag = document.getElementById(CHAT_FONT_STYLE_ID);
-    if (!tag) {
-      tag = document.createElement('style');
-      tag.id = CHAT_FONT_STYLE_ID;
-      document.head.appendChild(tag);
+
+    const sel = resolveChatFontScopeSelector(document, this.adapter);
+    if (sel) {
+      let tag = document.getElementById(CHAT_FONT_STYLE_ID);
+      if (!tag) {
+        tag = document.createElement('style');
+        tag.id = CHAT_FONT_STYLE_ID;
+        document.head.appendChild(tag);
+      }
+      tag.textContent = `${sel} { zoom: ${scale}; }`;
+      return;
     }
-    tag.textContent = `${sel} { zoom: ${scale}; }`;
+
+    const sr = this.adapter.getScrollRoot(document);
+    if (sr instanceof HTMLElement && sr !== document.body && sr !== document.documentElement) {
+      document.getElementById(CHAT_FONT_STYLE_ID)?.remove();
+      sr.style.setProperty('zoom', String(scale));
+      this.chatFontZoomInlineEl = sr;
+      return;
+    }
+
+    this.removeChatFontStyle();
   }
 
   private syncChatFontButtons(): void {
