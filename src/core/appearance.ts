@@ -4,6 +4,9 @@
 
 export const STORAGE_TOPIC_NAV_APPEARANCE = 'topicNav_appearance_v1' as const;
 
+/** Ephemeral draft (MV3 session storage) — live preview while popup is open; removed on dismiss unsaved */
+export const STORAGE_TOPIC_NAV_APPEARANCE_LIVE_PREVIEW = 'topicNav_appearance_live_preview_v1' as const;
+
 export type TopicNavDotStyle = 'solid' | 'hollow' | 'outline';
 
 /** Current schema (dots: shared shape; inactive/active each have fill+border incl. opacity & width). */

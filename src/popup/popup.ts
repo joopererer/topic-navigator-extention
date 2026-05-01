@@ -1,6 +1,7 @@
 import type { TopicNavAppearanceStored } from '../core/appearance.js';
 import {
   STORAGE_TOPIC_NAV_APPEARANCE,
+  STORAGE_TOPIC_NAV_APPEARANCE_LIVE_PREVIEW,
   defaultTopicNavAppearance,
   parseTopicNavAppearance,
 } from '../core/appearance.js';
@@ -53,6 +54,24 @@ const lblDotActiveBg = getEl('_lblDotActiveBg');
 const lblDotActiveBd = getEl('_lblDotActiveBd');
 const lblDotActiveBdW = getEl('_lblDotActiveBdW');
 const lblLocaleHeading = getEl('_lblLocaleHeading');
+
+/** Serialized `readFromForm()` — skips redundant session writes while dragging */
+let lastLivePreviewSerialized = '';
+let previewDebounceTimer: number | undefined;
+
+async function clearLivePreviewSession(): Promise<void> {
+  try {
+    if (chrome.storage.session?.remove) {
+      await chrome.storage.session.remove(STORAGE_TOPIC_NAV_APPEARANCE_LIVE_PREVIEW);
+    }
+  } catch {
+    /* ignore */
+  }
+}
+
+function bumpSerializedBaseline(): void {
+  lastLivePreviewSerialized = JSON.stringify(readFromForm());
+}
 
 function ux(lang: UiLangCode, key: UiStringKey, vars?: Record<string, string | number>): string {
   return t(lang, key, vars);
@@ -170,7 +189,34 @@ function syncSliderLabels(): void {
   applyChromeStrings(langForChrome());
 }
 
-[
+function scheduleLivePreviewFlush(): void {
+  if (!chrome.storage.session?.set) return;
+  if (previewDebounceTimer !== undefined) window.clearTimeout(previewDebounceTimer);
+  previewDebounceTimer = window.setTimeout(() => {
+    previewDebounceTimer = undefined;
+    void (async () => {
+      try {
+        const payload = readFromForm();
+        const ser = JSON.stringify(payload);
+        if (ser === lastLivePreviewSerialized) return;
+        lastLivePreviewSerialized = ser;
+        await chrome.storage.session.set({
+          [STORAGE_TOPIC_NAV_APPEARANCE_LIVE_PREVIEW]: payload,
+        });
+      } catch {
+        /* ignore */
+      }
+    })();
+  }, 50);
+}
+
+/** Capsule/dot controls: update labels + push session preview */
+function onAppearanceFieldInput(): void {
+  syncSliderLabels();
+  scheduleLivePreviewFlush();
+}
+
+const appearanceSliders: HTMLInputElement[] = [
   shellWidth,
   trackBgOp,
   trackBorderOp,
@@ -180,13 +226,31 @@ function syncSliderLabels(): void {
   dotActiveBgOp,
   dotActiveBorderOp,
   dotActiveBorderW,
-].forEach((el) => el.addEventListener('input', syncSliderLabels));
+];
 
-dotStyle.addEventListener('change', syncSliderLabels);
+const appearanceColorPickers: HTMLInputElement[] = [
+  trackBg,
+  trackBorder,
+  dotIdleBg,
+  dotIdleBorder,
+  dotActiveBg,
+  dotActiveBorder,
+];
+
+appearanceSliders.forEach((el) => el.addEventListener('input', onAppearanceFieldInput));
+appearanceColorPickers.forEach((el) => el.addEventListener('input', onAppearanceFieldInput));
+
+dotStyle.addEventListener('change', onAppearanceFieldInput);
 
 localePref.addEventListener('change', () => void persistLocalePrefs());
 
+window.addEventListener('pagehide', (ev: PageTransitionEvent) => {
+  if (ev.persisted) return;
+  void clearLivePreviewSession();
+});
+
 async function load(): Promise<void> {
+  await clearLivePreviewSession();
   const bag = await chrome.storage.sync.get([STORAGE_TOPIC_NAV_APPEARANCE, STORAGE_TOPIC_NAV_UI]);
   const rawUi = bag[STORAGE_TOPIC_NAV_UI as keyof typeof bag];
   const ui = parseTopicNavUiStored(rawUi) ?? defaultUiPrefs();
@@ -195,6 +259,7 @@ async function load(): Promise<void> {
   const raw = bag[STORAGE_TOPIC_NAV_APPEARANCE as keyof typeof bag];
   const parsed = parseTopicNavAppearance(raw);
   hydrate(parsed ?? defaultTopicNavAppearance());
+  bumpSerializedBaseline();
 }
 
 saveBtn.addEventListener('click', async () => {
@@ -204,14 +269,18 @@ saveBtn.addEventListener('click', async () => {
     [STORAGE_TOPIC_NAV_APPEARANCE]: next,
     [STORAGE_TOPIC_NAV_UI]: { v: 1, langPref: prefFromSelect() },
   });
+  await clearLivePreviewSession();
+  lastLivePreviewSerialized = JSON.stringify(next);
   applyChromeStrings(langForChrome());
   status.textContent = ux(langForChrome(), 'savedStatus');
 });
 
 resetBtn.addEventListener('click', async () => {
   status.textContent = '';
+  await clearLivePreviewSession();
   await chrome.storage.sync.remove(STORAGE_TOPIC_NAV_APPEARANCE as unknown as string);
   hydrate(defaultTopicNavAppearance());
+  bumpSerializedBaseline();
   status.textContent = ux(langForChrome(), 'resetStatus');
 });
 

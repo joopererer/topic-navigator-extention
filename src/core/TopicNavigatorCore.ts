@@ -1,5 +1,6 @@
 import {
   STORAGE_TOPIC_NAV_APPEARANCE,
+  STORAGE_TOPIC_NAV_APPEARANCE_LIVE_PREVIEW,
   buildTopicNavAppearanceStyle,
   parseTopicNavAppearance,
   type TopicNavAppearanceStored,
@@ -63,8 +64,8 @@ const HOST_STYLES = `
   width: 30px;
   height: 30px;
   border-radius: 10px;
-  border: 1px solid color-mix(in srgb, CanvasText 18%, transparent);
-  background: color-mix(in srgb, Canvas 90%, CanvasText 10%);
+  border: 1px solid var(--tn-stage-border);
+  background: var(--tn-stage-bg);
   color: CanvasText;
   cursor: pointer;
   display: flex;
@@ -75,7 +76,7 @@ const HOST_STYLES = `
   z-index: 2147483002;
 }
 #${BAR_ID} .topic-nav-fab:hover {
-  background: color-mix(in srgb, Canvas 78%, CanvasText 18%);
+  filter: brightness(0.94);
 }
 
 /* Full-screen overlay layer for outline panel */
@@ -113,8 +114,8 @@ const HOST_STYLES = `
   display: flex;
   flex-direction: column;
   border-radius: 14px;
-  border: 1px solid color-mix(in srgb, CanvasText 14%, transparent);
-  background: color-mix(in srgb, Canvas 94%, CanvasText 8%);
+  border: 1px solid var(--tn-stage-border);
+  background: var(--tn-stage-bg);
   box-shadow: 0 24px 64px rgba(0, 0, 0, 0.35);
 }
 
@@ -196,7 +197,7 @@ const HOST_STYLES = `
 
 #${BAR_ID} .topic-nav-panel-head {
   padding: 12px 12px 10px;
-  border-bottom: 1px solid color-mix(in srgb, CanvasText 10%, transparent);
+  border-bottom: 1px solid var(--tn-stage-border);
 }
 #${BAR_ID} .topic-nav-search {
   width: 100%;
@@ -361,6 +362,47 @@ export class TopicNavigatorCore {
     tag.textContent = buildTopicNavAppearanceStyle(a);
   }
 
+  /**
+   * Apply sync appearance, overridden by session live preview when the popup is open.
+   * If session payload is invalid, falls back to sync.
+   */
+  private async pickAndApplyTheme(syncRaw: unknown): Promise<void> {
+    if (!this.bar?.isConnected) return;
+    let chosen: unknown = syncRaw;
+    try {
+      if (typeof chrome !== 'undefined' && chrome.storage?.session?.get) {
+        const s = await chrome.storage.session.get(STORAGE_TOPIC_NAV_APPEARANCE_LIVE_PREVIEW);
+        const p = (s as Record<string, unknown>)[STORAGE_TOPIC_NAV_APPEARANCE_LIVE_PREVIEW];
+        if (p !== undefined) chosen = p;
+      }
+    } catch {
+      /* session storage may be unavailable */
+    }
+    let parsed = parseTopicNavAppearance(chosen);
+    if (!parsed && chosen !== syncRaw && syncRaw !== undefined && syncRaw !== null) {
+      parsed = parseTopicNavAppearance(syncRaw);
+    }
+    if (!parsed) this.clearUserAppearance();
+    else this.applyUserAppearanceSync(parsed);
+  }
+
+  /** Re-read appearance only — used for live preview (no DOM rebuild). */
+  applyStoredAppearanceOnly(): void {
+    void this.reapplyThemeOnly();
+  }
+
+  private async reapplyThemeOnly(): Promise<void> {
+    try {
+      if (typeof chrome === 'undefined' || !chrome.storage?.sync?.get) return;
+      if (!this.bar?.isConnected) return;
+      const bag = await chrome.storage.sync.get(STORAGE_TOPIC_NAV_APPEARANCE);
+      const raw = bag[STORAGE_TOPIC_NAV_APPEARANCE as keyof typeof bag];
+      await this.pickAndApplyTheme(raw);
+    } catch {
+      /* ignore */
+    }
+  }
+
   /** Language + capsule/dot theme from chrome.storage.sync (requires `this.bar`). */
   private async hydrateSyncedSettings(): Promise<void> {
     try {
@@ -369,10 +411,8 @@ export class TopicNavigatorCore {
       const rawUi = bag[STORAGE_TOPIC_NAV_UI as keyof typeof bag];
       const prefs = parseTopicNavUiStored(rawUi) ?? defaultUiPrefs();
       this.uiLang = resolveUiLang(prefs.langPref);
-      const rawA = bag[STORAGE_TOPIC_NAV_APPEARANCE as keyof typeof bag];
-      const parsed = parseTopicNavAppearance(rawA);
-      if (!parsed) this.clearUserAppearance();
-      else this.applyUserAppearanceSync(parsed);
+      const syncRaw = bag[STORAGE_TOPIC_NAV_APPEARANCE as keyof typeof bag];
+      await this.pickAndApplyTheme(syncRaw);
     } catch {
       /* ignore */
     }
