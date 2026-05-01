@@ -1,0 +1,42 @@
+{
+  "manifest_version": 3,
+  "name": "Topic Navigator",
+  "version": "1.0.0",
+  "description": "Jump between conversation turns on ChatGPT, Gemini, Claude, Onyx, and custom Onyx hosts.",
+  "permissions": ["storage", "scripting"],
+  "host_permissions": [
+    "https://chatgpt.com/*",
+    "https://chat.openai.com/*",
+    "https://gemini.google.com/*",
+    "https://business.gemini.google/*",
+    "https://aistudio.google.com/*",
+    "https://aistudio.google.cn/*",
+    "https://claude.ai/*",
+    "https://cloud.onyx.app/*"
+  ],
+  "optional_host_permissions": ["https://*/*", "http://*/*"],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "options_ui": {
+    "page": "options.html",
+    "open_in_tab": true
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://chatgpt.com/*",
+        "https://chat.openai.com/*",
+        "https://gemini.google.com/*",
+        "https://business.gemini.google/*",
+        "https://aistudio.google.com/*",
+        "https://aistudio.google.cn/*",
+        "https://claude.ai/*",
+        "https://cloud.onyx.app/*"
+      ],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}

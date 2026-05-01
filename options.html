@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Topic Navigator · Options</title>
+  </head>
+  <body style="font-family: system-ui, sans-serif; max-width: 52rem; margin: 2rem auto; padding: 0 1rem">
+    <h1>Topic Navigator</h1>
+    <p>
+      Self-hosted Onyx uses your own hostname. Enter Chrome
+      <a href="https://developer.chrome.com/docs/extensions/develop/concepts/match-patterns">match patterns</a>
+      (one per line). Saving asks for permission and registers the content script on those URLs.
+    </p>
+    <label for="patterns"><strong>Onyx patterns</strong></label>
+    <textarea
+      id="patterns"
+      rows="10"
+      style="display: block; width: 100%; font-family: ui-monospace, monospace; margin-top: 0.5rem"
+      placeholder="https://onyx.internal.example.com/chat*"
+    ></textarea>
+    <p style="font-size: 0.8125rem; color: color-mix(in srgb, CanvasText 72%, Canvas)">
+      Examples: https://company-onyx.app/chat<span>*</span> · http://127.0.0.1:3000/*
+    </p>
+    <button id="save" type="button" style="margin-top: 0.5rem; padding: 0.4rem 0.85rem">
+      Save &amp; register
+    </button>
+    <p id="status" role="status" style="margin-top: 1rem"></p>
+    <script type="module" src="/src/options/options.ts"></script>
+  </body>
+</html>

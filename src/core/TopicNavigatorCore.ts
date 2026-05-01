@@ -1,0 +1,795 @@
+import { extractTurnPreview, getScrollParent } from './domUtils.js';
+import type { PlatformAdapter } from './types.js';
+
+const BAR_ID = 'topic-navigator-bar';
+const HOST_STYLE_ID = 'topic-navigator-host-styles';
+
+/** Minimum spacing between dot centers — scrollable rail grows when exceeded. */
+const MIN_DOT_SPACING_PX = 15;
+const STAGE_VERTICAL_PAD_PX = 10;
+
+const HOST_STYLES = `
+#${BAR_ID} {
+  position: fixed;
+  inset: 0;
+  z-index: 2147483000;
+  pointer-events: none;
+  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  font-size: 13px;
+}
+#${BAR_ID} * {
+  box-sizing: border-box;
+}
+
+/* FAB list button — floated beside the timeline (Voyager-style). */
+#${BAR_ID} .topic-nav-fab {
+  position: fixed;
+  right: 38px;
+  top: clamp(104px, 38vh, 46vh);
+  transform: translateY(-50%);
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  border: 1px solid color-mix(in srgb, CanvasText 18%, transparent);
+  background: color-mix(in srgb, Canvas 90%, CanvasText 10%);
+  color: CanvasText;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 6px 22px rgba(0,0,0,0.16);
+  pointer-events: auto;
+  z-index: 2147483002;
+}
+#${BAR_ID} .topic-nav-fab:hover {
+  background: color-mix(in srgb, Canvas 78%, CanvasText 18%);
+}
+
+/* Full-screen overlay layer for outline panel */
+#${BAR_ID} .topic-nav-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2147483005;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 48px clamp(48px, 6vw, 96px);
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity .18s ease, visibility .18s ease;
+}
+#${BAR_ID} .topic-nav-overlay.topic-nav-overlay--open {
+  pointer-events: auto;
+  opacity: 1;
+  visibility: visible;
+}
+#${BAR_ID} .topic-nav-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.28);
+  backdrop-filter: blur(1px);
+}
+#${BAR_ID} .topic-nav-sheet {
+  position: relative;
+  z-index: 1;
+  pointer-events: auto;
+  margin-right: 2px;
+  max-height: min(640px, 88vh);
+  width: min(380px, calc(100vw - 96px));
+  display: flex;
+  flex-direction: column;
+  border-radius: 14px;
+  border: 1px solid color-mix(in srgb, CanvasText 14%, transparent);
+  background: color-mix(in srgb, Canvas 94%, CanvasText 8%);
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.35);
+}
+
+#${BAR_ID} .topic-nav-stage-shell {
+  position: fixed;
+  top: 88px;
+  bottom: 40px;
+  right: 6px;
+  width: 26px;
+  z-index: 2147483001;
+  pointer-events: auto;
+  display: flex;
+  align-items: stretch;
+}
+
+#${BAR_ID} .topic-nav-stage {
+  flex: 1;
+  position: relative;
+  width: 100%;
+  min-height: 120px;
+  border-radius: 999px;
+  background: color-mix(in srgb, Canvas 88%, CanvasText 10%);
+  border: 1px solid color-mix(in srgb, CanvasText 14%, transparent);
+  box-shadow: 0 6px 24px rgba(0,0,0,0.15);
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: thin;
+}
+#${BAR_ID} .topic-nav-stage-inner {
+  position: relative;
+  width: 100%;
+  min-height: 100%;
+}
+#${BAR_ID} .topic-nav-marker-slot {
+  position: absolute;
+  left: 50%;
+  width: 0;
+  height: 0;
+  transform: translate(-50%, -50%);
+}
+#${BAR_ID} .topic-nav-dot {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 12px;
+  height: 12px;
+  padding: 0;
+  border-radius: 999px;
+  border: 1.5px solid color-mix(in srgb, CanvasText 32%, transparent);
+  background: color-mix(in srgb, Canvas 55%, CanvasText 10%);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: transform 0.12s ease, background 0.12s ease, border-color 0.12s ease;
+}
+#${BAR_ID} .topic-nav-dot:hover {
+  transform: translate(-50%, -50%) scale(1.2);
+}
+#${BAR_ID} .topic-nav-dot.topic-nav-dot--active {
+  background: #2563eb;
+  border-color: color-mix(in srgb, #2563eb 55%, CanvasText);
+  transform: translate(-50%, -50%) scale(1.3);
+}
+
+#${BAR_ID} .topic-nav-panel-head {
+  padding: 12px 12px 10px;
+  border-bottom: 1px solid color-mix(in srgb, CanvasText 10%, transparent);
+}
+#${BAR_ID} .topic-nav-search {
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid color-mix(in srgb, CanvasText 16%, transparent);
+  background: Canvas;
+  color: CanvasText;
+  font: inherit;
+  outline: none;
+}
+#${BAR_ID} .topic-nav-search:focus {
+  border-color: color-mix(in srgb, #2563eb 55%, CanvasText);
+}
+#${BAR_ID} .topic-nav-panel-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 6px 4px 10px;
+  min-height: 0;
+}
+#${BAR_ID} .topic-nav-summary-row {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  padding: 7px 8px;
+  margin: 2px 6px;
+  border-radius: 8px;
+  cursor: pointer;
+  color: CanvasText;
+  border: 1px solid transparent;
+  width: calc(100% - 12px);
+  text-align: left;
+  background: transparent;
+  font: inherit;
+}
+#${BAR_ID} .topic-nav-summary-row:hover {
+  background: color-mix(in srgb, CanvasText 6%, transparent);
+}
+#${BAR_ID} .topic-nav-summary-row.topic-nav-summary-row--active {
+  background: color-mix(in srgb, #2563eb 14%, transparent);
+  border-color: color-mix(in srgb, #2563eb 35%, transparent);
+}
+#${BAR_ID} .topic-nav-summary-idx {
+  flex-shrink: 0;
+  width: 22px;
+  text-align: right;
+  font-weight: 700;
+  font-size: 11px;
+  opacity: 0.55;
+  padding-top: 1px;
+}
+#${BAR_ID} .topic-nav-summary-text {
+  flex: 1;
+  min-width: 0;
+  font-size: 12px;
+  line-height: 1.35;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Floating tooltip (not native title) — appended under #${BAR_ID} */
+#${BAR_ID} .topic-nav-tooltip-float {
+  position: fixed;
+  z-index: 2147483640;
+  max-width: min(320px, calc(100vw - 24px));
+  padding: 8px 11px;
+  border-radius: 9px;
+  font-size: 12px;
+  line-height: 1.38;
+  font-weight: 500;
+  color: CanvasText;
+  background: color-mix(in srgb, Canvas 94%, CanvasText 8%);
+  border: 1px solid color-mix(in srgb, CanvasText 16%, transparent);
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.26);
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.1s ease, visibility 0.1s ease;
+  word-break: break-word;
+  white-space: pre-wrap;
+}
+#${BAR_ID} .topic-nav-tooltip-float.topic-nav-tooltip-float--visible {
+  opacity: 1;
+  visibility: visible;
+}
+@media (prefers-color-scheme: dark) {
+  #${BAR_ID} .topic-nav-dot.topic-nav-dot--active {
+    background: #60a5fa;
+    border-color: color-mix(in srgb, #60a5fa 55%, CanvasText);
+  }
+  #${BAR_ID} .topic-nav-summary-row.topic-nav-summary-row--active {
+    background: color-mix(in srgb, #60a5fa 16%, transparent);
+    border-color: color-mix(in srgb, #60a5fa 40%, transparent);
+  }
+}
+`;
+
+export class TopicNavigatorCore {
+  private adapter: PlatformAdapter;
+  private bar: HTMLElement | null = null;
+  private dots: HTMLElement[] = [];
+  private roots: HTMLElement[] = [];
+  private previewStrings: string[] = [];
+  private intersectionObserver: IntersectionObserver | null = null;
+  private mutationObserver: MutationObserver | null = null;
+  private resizeObserver: ResizeObserver | null = null;
+  private debounceTimer: number | undefined;
+  private onKeyDownBound: ((e: KeyboardEvent) => void) | null = null;
+  private activeIndex = -1;
+
+  private panelList: HTMLElement | null = null;
+  private searchInput: HTMLInputElement | null = null;
+  private overlayEl: HTMLElement | null = null;
+  private floatingTip: HTMLElement | null = null;
+  private tooltipHideTimer: number | undefined;
+
+  /** Outline panel overlay */
+  private isPanelOpen = false;
+  private fabButton: HTMLButtonElement | null = null;
+  private stageEl: HTMLElement | null = null;
+  private stageInner: HTMLElement | null = null;
+
+  /** Hide floating tooltip when the user scrolls or zooms the page (Voyager-style). */
+  private readonly onWheelHideTip = (): void => {
+    this.hideTooltip(true);
+  };
+
+  constructor(adapter: PlatformAdapter) {
+    this.adapter = adapter;
+  }
+
+  start(): void {
+    this.mountStyles();
+    this.mutationObserver?.disconnect();
+    this.mutationObserver = null;
+    window.addEventListener('wheel', this.onWheelHideTip, { capture: true, passive: true });
+    this.refresh();
+    this.attachMutationObserver();
+    this.attachKeyboard();
+  }
+
+  destroy(): void {
+    window.removeEventListener('wheel', this.onWheelHideTip, { capture: true });
+    if (this.debounceTimer) clearTimeout(this.debounceTimer);
+    if (this.tooltipHideTimer) clearTimeout(this.tooltipHideTimer);
+    this.mutationObserver?.disconnect();
+    this.mutationObserver = null;
+    this.resizeObserver?.disconnect();
+    this.resizeObserver = null;
+    this.intersectionObserver?.disconnect();
+    this.intersectionObserver = null;
+    if (this.onKeyDownBound) {
+      window.removeEventListener('keydown', this.onKeyDownBound, true);
+      this.onKeyDownBound = null;
+    }
+    this.bar?.remove();
+    this.bar = null;
+    this.panelList = null;
+    this.searchInput = null;
+    this.overlayEl = null;
+    this.floatingTip = null;
+    this.fabButton = null;
+    this.stageEl = null;
+    this.stageInner = null;
+    document.getElementById(HOST_STYLE_ID)?.remove();
+  }
+
+  refresh(): void {
+    if (!this.adapter.matchesLocation(new URL(location.href))) {
+      this.destroyExceptUi();
+      return;
+    }
+
+    const roots = this.adapter.findTurnRoots(document);
+    this.roots = roots;
+
+    const scrollRoot =
+      this.adapter.getScrollRoot(document) ??
+      (this.roots[0] ? getScrollParent(this.roots[0]) : null) ??
+      (document.scrollingElement as HTMLElement);
+
+    if (!roots.length) {
+      this.bar?.remove();
+      this.bar = null;
+      this.resizeObserver?.disconnect();
+      this.resizeObserver = null;
+      this.panelList = null;
+      this.searchInput = null;
+      this.overlayEl = null;
+      this.floatingTip = null;
+      this.fabButton = null;
+      this.stageEl = null;
+      this.stageInner = null;
+      this.dots = [];
+      this.previewStrings = [];
+      this.intersectionObserver?.disconnect();
+      this.intersectionObserver = null;
+      return;
+    }
+
+    this.previewStrings = roots.map((el, i) => {
+      const p = extractTurnPreview(el).trim();
+      return p.length > 0 ? p : `Turn ${i + 1}`;
+    });
+
+    this.ensureBar();
+    this.renderChrome();
+    this.setupIntersection(scrollRoot ?? document.documentElement);
+    queueMicrotask(() => this.measureAndLayoutDots());
+    this.highlightActive(Math.min(Math.max(this.activeIndex, 0), roots.length - 1));
+  }
+
+  private destroyExceptUi(): void {
+    if (this.debounceTimer) clearTimeout(this.debounceTimer);
+    if (this.tooltipHideTimer) clearTimeout(this.tooltipHideTimer);
+    this.mutationObserver?.disconnect();
+    this.mutationObserver = null;
+    this.resizeObserver?.disconnect();
+    this.resizeObserver = null;
+    this.intersectionObserver?.disconnect();
+    this.intersectionObserver = null;
+    if (this.onKeyDownBound) {
+      window.removeEventListener('keydown', this.onKeyDownBound, true);
+      this.onKeyDownBound = null;
+    }
+    this.bar?.remove();
+    this.bar = null;
+    this.panelList = null;
+    this.searchInput = null;
+    this.overlayEl = null;
+    this.floatingTip = null;
+    this.fabButton = null;
+    this.stageEl = null;
+    this.stageInner = null;
+    this.roots = [];
+    this.dots = [];
+    this.previewStrings = [];
+    this.activeIndex = -1;
+    this.isPanelOpen = false;
+  }
+
+  private mountStyles(): void {
+    if (document.getElementById(HOST_STYLE_ID)) return;
+    const s = document.createElement('style');
+    s.id = HOST_STYLE_ID;
+    s.textContent = HOST_STYLES;
+    document.head.appendChild(s);
+  }
+
+  private ensureBar(): void {
+    if (this.bar) return;
+    const bar = document.createElement('div');
+    bar.id = BAR_ID;
+    bar.setAttribute('data-topic-navigator', '');
+    document.documentElement.appendChild(bar);
+    this.bar = bar;
+
+    const tip = document.createElement('div');
+    tip.className = 'topic-nav-tooltip-float';
+    tip.setAttribute('role', 'tooltip');
+    bar.appendChild(tip);
+    this.floatingTip = tip;
+  }
+
+  private hideTooltip(immediate?: boolean): void {
+    if (this.tooltipHideTimer) clearTimeout(this.tooltipHideTimer);
+    const hide = (): void => {
+      this.floatingTip?.classList.remove('topic-nav-tooltip-float--visible');
+    };
+    if (immediate) hide();
+    else this.tooltipHideTimer = window.setTimeout(hide, 100);
+  }
+
+  private positionTooltip(dot: HTMLElement): void {
+    const tip = this.floatingTip;
+    if (!tip || !tip.textContent) return;
+
+    tip.classList.add('topic-nav-tooltip-float--visible');
+    tip.style.left = '';
+    tip.style.top = '';
+
+    const r = dot.getBoundingClientRect();
+    const pad = 8;
+    tip.style.visibility = 'hidden';
+
+    requestAnimationFrame(() => {
+      if (!tip.isConnected || !dot.isConnected) return;
+      tip.style.visibility = '';
+      const tw = tip.offsetWidth;
+      const th = tip.offsetHeight;
+      let left = r.left - tw - 14;
+      let top = r.top + r.height / 2 - th / 2;
+
+      if (left < pad) left = Math.min(r.right + 14, window.innerWidth - tw - pad);
+      top = Math.max(pad, Math.min(top, window.innerHeight - th - pad));
+      left = Math.max(pad, Math.min(left, window.innerWidth - tw - pad));
+
+      tip.style.left = `${Math.round(left)}px`;
+      tip.style.top = `${Math.round(top)}px`;
+    });
+  }
+
+  private bindDotHover(dot: HTMLElement, preview: string, index: number): void {
+    const text = `${index + 1}. ${preview}`;
+    dot.addEventListener('mouseenter', () => {
+      if (this.tooltipHideTimer) clearTimeout(this.tooltipHideTimer);
+      const tip = this.floatingTip;
+      if (!tip) return;
+      tip.textContent = text;
+      dot.setAttribute('aria-label', `Turn ${index + 1}${preview ? `: ${preview}` : ''}`);
+      this.positionTooltip(dot);
+    });
+    dot.addEventListener('mouseleave', () => this.hideTooltip());
+    dot.addEventListener('focus', () => {
+      const tip = this.floatingTip;
+      if (!tip) return;
+      tip.textContent = text;
+      this.positionTooltip(dot);
+    });
+    dot.addEventListener('blur', () => this.hideTooltip(true));
+  }
+
+  private closeOutlinePanel(): void {
+    this.isPanelOpen = false;
+    this.overlayEl?.classList.remove('topic-nav-overlay--open');
+    this.overlayEl?.setAttribute('aria-hidden', 'true');
+    this.fabButton?.setAttribute('aria-expanded', 'false');
+    this.fabButton?.setAttribute('aria-label', 'Open turn list');
+    this.hideTooltip(true);
+  }
+
+  private openOutlinePanel(): void {
+    this.isPanelOpen = true;
+    this.overlayEl?.classList.add('topic-nav-overlay--open');
+    this.overlayEl?.setAttribute('aria-hidden', 'false');
+    this.fabButton?.setAttribute('aria-expanded', 'true');
+    this.fabButton?.setAttribute('aria-label', 'Close turn list');
+    queueMicrotask(() => this.searchInput?.focus({ preventScroll: true }));
+  }
+
+  private measureAndLayoutDots(): void {
+    if (!this.stageEl || !this.stageInner) return;
+    const shell = this.stageEl;
+    const inner = this.stageInner;
+    const n = this.roots.length;
+    const slots = inner.querySelectorAll<HTMLElement>('.topic-nav-marker-slot');
+
+    const H = shell.clientHeight;
+    const minInner = n <= 1 ? H : STAGE_VERTICAL_PAD_PX * 2 + (n - 1) * MIN_DOT_SPACING_PX;
+    const innerH = Math.max(H, minInner);
+    inner.style.height = `${innerH}px`;
+
+    slots.forEach((slot, i) => {
+      if (n === 1) {
+        slot.style.top = `${innerH / 2}px`;
+        return;
+      }
+      const span = innerH - STAGE_VERTICAL_PAD_PX * 2;
+      const y = STAGE_VERTICAL_PAD_PX + (span * i) / (n - 1);
+      slot.style.top = `${y}px`;
+    });
+  }
+
+  private attachStageResizeObserver(): void {
+    this.resizeObserver?.disconnect();
+    if (!this.stageEl) return;
+    this.resizeObserver = new ResizeObserver(() => {
+      queueMicrotask(() => this.measureAndLayoutDots());
+    });
+    this.resizeObserver.observe(this.stageEl);
+  }
+
+  private renderChrome(): void {
+    if (!this.bar) return;
+    this.resizeObserver?.disconnect();
+    const keepTip = this.floatingTip;
+    this.bar.replaceChildren();
+    if (keepTip) this.bar.appendChild(keepTip);
+    else {
+      const tip = document.createElement('div');
+      tip.className = 'topic-nav-tooltip-float';
+      tip.setAttribute('role', 'tooltip');
+      this.bar.appendChild(tip);
+      this.floatingTip = tip;
+    }
+
+    const overlay = document.createElement('div');
+    overlay.className = `topic-nav-overlay${this.isPanelOpen ? ' topic-nav-overlay--open' : ''}`;
+    overlay.setAttribute('aria-hidden', (!this.isPanelOpen).toString());
+
+    const backdrop = document.createElement('div');
+    backdrop.className = 'topic-nav-backdrop';
+    backdrop.addEventListener('click', () => this.closeOutlinePanel());
+
+    const sheet = document.createElement('div');
+    sheet.className = 'topic-nav-sheet';
+    sheet.setAttribute('role', 'dialog');
+    sheet.setAttribute('aria-modal', 'true');
+    sheet.setAttribute('aria-label', 'Conversation outline');
+
+    sheet.innerHTML = `
+      <div class="topic-nav-panel-head">
+        <input type="search" class="topic-nav-search" placeholder="Search turns…"
+          autocomplete="off" spellcheck="false" aria-label="Filter turns"/>
+      </div>
+      <div class="topic-nav-panel-body topic-nav-summary-list"></div>
+    `;
+    overlay.appendChild(backdrop);
+    overlay.appendChild(sheet);
+    this.overlayEl = overlay;
+
+    const list = sheet.querySelector('.topic-nav-summary-list') as HTMLElement;
+    const query = sheet.querySelector('.topic-nav-search') as HTMLInputElement;
+    this.panelList = list;
+    this.searchInput = query;
+    query.addEventListener('input', () => this.rebuildPanelRows());
+    query.addEventListener('keydown', (e) => e.stopPropagation());
+    backdrop.addEventListener('keydown', (e) => e.stopPropagation());
+
+    const fab = document.createElement('button');
+    fab.type = 'button';
+    fab.className = 'topic-nav-fab';
+    fab.setAttribute('aria-haspopup', 'dialog');
+    fab.setAttribute('aria-expanded', this.isPanelOpen ? 'true' : 'false');
+    fab.setAttribute('aria-label', this.isPanelOpen ? 'Close turn list' : 'Open turn list');
+    fab.innerHTML =
+      `<svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M8 6h13M8 12h13M8 18h13M3 6h1M3 12h1M3 18h1"/></svg>`;
+    fab.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (this.isPanelOpen) this.closeOutlinePanel();
+      else this.openOutlinePanel();
+      overlay.setAttribute('aria-hidden', (!this.isPanelOpen).toString());
+    });
+    this.fabButton = fab;
+
+    const stageShell = document.createElement('div');
+    stageShell.className = 'topic-nav-stage-shell';
+
+    const stage = document.createElement('div');
+    stage.className = 'topic-nav-stage';
+    const stageInner = document.createElement('div');
+    stageInner.className = 'topic-nav-stage-inner';
+    this.stageEl = stage;
+    this.stageInner = stageInner;
+
+    const dotN = this.roots.length;
+    this.dots = [];
+    for (let i = 0; i < dotN; i++) {
+      const slot = document.createElement('div');
+      slot.className = 'topic-nav-marker-slot';
+
+      const dot = document.createElement('button');
+      dot.type = 'button';
+      dot.className = 'topic-nav-dot';
+      const brief = this.previewStrings[i] ?? '';
+      dot.setAttribute('aria-label', `Turn ${i + 1}${brief ? `: ${brief}` : ''}`);
+      dot.addEventListener('click', () => this.scrollToIndex(i));
+      this.bindDotHover(dot, brief || `Turn ${i + 1}`, i);
+
+      slot.appendChild(dot);
+      stageInner.appendChild(slot);
+      this.dots.push(dot);
+    }
+
+    stage.appendChild(stageInner);
+    stageShell.appendChild(stage);
+
+    sheet.addEventListener('click', (e) => e.stopPropagation());
+
+    this.bar.appendChild(overlay);
+    this.bar.appendChild(fab);
+    this.bar.appendChild(stageShell);
+
+    this.attachStageResizeObserver();
+    queueMicrotask(() => this.measureAndLayoutDots());
+
+    this.rebuildPanelRows();
+    if (this.isPanelOpen) queueMicrotask(() => query.focus({ preventScroll: true }));
+  }
+
+  private rebuildPanelRows(): void {
+    if (!this.panelList || !this.searchInput) return;
+    const q = this.searchInput.value.trim().toLowerCase();
+    this.panelList.replaceChildren();
+
+    this.roots.forEach((_, i) => {
+      const text = this.previewStrings[i] ?? '';
+      const num = String(i + 1);
+      if (q !== '' && !text.toLowerCase().includes(q) && !num.includes(q)) return;
+
+      const row = document.createElement('button');
+      row.type = 'button';
+      row.className = 'topic-nav-summary-row';
+      row.dataset.topicIndex = String(i);
+      row.setAttribute('aria-label', `Turn ${num}: ${text}`);
+
+      const idx = document.createElement('span');
+      idx.className = 'topic-nav-summary-idx';
+      idx.textContent = num;
+
+      const span = document.createElement('span');
+      span.className = 'topic-nav-summary-text';
+      span.textContent = text || `Turn ${num}`;
+
+      row.append(idx, span);
+      row.addEventListener('click', () => this.scrollToIndex(i));
+      this.panelList!.appendChild(row);
+    });
+
+    this.updatePanelHighlight();
+  }
+
+  private scrollToIndex(i: number): void {
+    const el = this.roots[i];
+    if (!el) return;
+    const scrollFallback =
+      this.adapter.getScrollRoot(document) ??
+      getScrollParent(el) ??
+      (document.scrollingElement as HTMLElement | null);
+
+    el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+    if (scrollFallback && scrollFallback !== document.documentElement && scrollFallback !== document.body) {
+      const top =
+        scrollFallback.scrollTop +
+        el.getBoundingClientRect().top -
+        scrollFallback.getBoundingClientRect().top -
+        12;
+      scrollFallback.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
+    }
+  }
+
+  private setupIntersection(scrollRootLike: HTMLElement | Document): void {
+    this.intersectionObserver?.disconnect();
+
+    const root: Element | null = ((): Element | null => {
+      if (scrollRootLike instanceof Document || scrollRootLike === document.documentElement) {
+        return null;
+      }
+      return scrollRootLike;
+    })();
+
+    this.intersectionObserver = new IntersectionObserver(
+      (entries) => {
+        let bestRatio = -1;
+        let bestIdx = -1;
+        entries.forEach((e) => {
+          if (!(e.target instanceof HTMLElement)) return;
+          const idx = this.roots.indexOf(e.target);
+          if (idx >= 0 && e.intersectionRatio > bestRatio) {
+            bestRatio = e.intersectionRatio;
+            bestIdx = idx;
+          }
+        });
+        if (bestIdx >= 0 && bestRatio > 0) {
+          this.highlightActive(bestIdx);
+        }
+      },
+      { root, rootMargin: '-20% 0px -55% 0px', threshold: [0.05, 0.25, 0.5, 1] },
+    );
+
+    this.roots.forEach((r) => this.intersectionObserver?.observe(r));
+  }
+
+  private highlightActive(idx: number): void {
+    if (idx < 0) return;
+    this.activeIndex = idx;
+    this.dots.forEach((d, j) => {
+      d.classList.toggle('topic-nav-dot--active', j === idx);
+    });
+    this.updatePanelHighlight();
+  }
+
+  private updatePanelHighlight(): void {
+    if (!this.panelList || this.activeIndex < 0) return;
+    this.panelList.querySelectorAll('.topic-nav-summary-row').forEach((el) => {
+      const hx = Number((el as HTMLElement).dataset.topicIndex);
+      el.classList.toggle('topic-nav-summary-row--active', hx === this.activeIndex);
+    });
+  }
+
+  private scheduleRefresh(): void {
+    if (this.debounceTimer) clearTimeout(this.debounceTimer);
+    this.debounceTimer = window.setTimeout(() => {
+      if (!this.adapter.matchesLocation(new URL(location.href))) return;
+      this.refresh();
+      this.debounceTimer = undefined;
+    }, 200);
+  }
+
+  private attachMutationObserver(): void {
+    const target =
+      this.adapter.getObserveRoot(document) ??
+      this.adapter.getScrollRoot(document) ??
+      document.body;
+    if (!target) return;
+    this.mutationObserver = new MutationObserver(() => this.scheduleRefresh());
+    this.mutationObserver.observe(target, {
+      childList: true,
+      subtree: true,
+    });
+  }
+
+  private attachKeyboard(): void {
+    if (this.onKeyDownBound) {
+      window.removeEventListener('keydown', this.onKeyDownBound, true);
+    }
+    this.onKeyDownBound = (e: KeyboardEvent): void => {
+      if (!this.bar || !this.roots.length) return;
+
+      if (e.key === 'Escape' && this.isPanelOpen) {
+        const t = e.target as HTMLElement | null;
+        if (t?.closest(`#${BAR_ID}`)) {
+          this.closeOutlinePanel();
+          e.preventDefault();
+          e.stopPropagation();
+        }
+        return;
+      }
+
+      if (e.altKey || e.ctrlKey || e.metaKey || e.repeat) return;
+      const t = e.target as HTMLElement | null;
+      if (t?.closest('input, textarea, select, [contenteditable="true"]')) return;
+
+      if (e.key === 'j' || e.key === 'J') {
+        const next = Math.min(this.roots.length - 1, this.activeIndex + 1);
+        if (next !== this.activeIndex) {
+          e.preventDefault();
+          this.scrollToIndex(next);
+        }
+      } else if (e.key === 'k' || e.key === 'K') {
+        const prev = Math.max(0, this.activeIndex - 1);
+        if (prev !== this.activeIndex) {
+          e.preventDefault();
+          this.scrollToIndex(prev);
+        }
+      }
+    };
+
+    window.addEventListener('keydown', this.onKeyDownBound, true);
+  }
+}

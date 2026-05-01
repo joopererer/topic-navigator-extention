@@ -1,0 +1,20 @@
+{
+  "name": "topic-navigator-extension",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite build --config vite.config.content.ts --watch",
+    "build": "tsc --noEmit && vite build --config vite.config.content.ts && vite build --config vite.config.background.ts && vite build --config vite.config.options.ts",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@types/chrome": "^0.0.287",
+    "@types/jsdom": "^21.1.7",
+    "@types/node": "^22.10.0",
+    "jsdom": "^25.0.1",
+    "typescript": "^5.7.2",
+    "vite": "^6.0.3",
+    "vitest": "^2.1.8"
+  }
+}

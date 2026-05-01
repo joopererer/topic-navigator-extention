@@ -1,0 +1,24 @@
+Topic Navigator — manual smoke checklist (run after dependency / selector changes)
+
+1) ChatGPT (https://chatgpt.com)
+   - Open an existing chat with at least 3 user turns.
+   - Right rail dots appear; click dot #2 scrolls to that user turn.
+   - Press j / k without focus in input: moves between turns.
+
+2) Gemini (https://gemini.google.com)
+   - Open a conversation on /app or /u/0/app.
+   - Dots follow user messages; click scrolls.
+
+3) Claude (https://claude.ai)
+   - Open a chat thread; confirm dots and keyboard.
+
+4) Onyx Cloud (https://cloud.onyx.app)
+   - Open Chat with history; confirm .chat-message.user anchors (if DOM matches OSS).
+
+5) Self-hosted Onyx
+   - Options → add pattern e.g. https://your-host/chat*
+   - Grant permission; reload chat page; repeat dot / keyboard checks.
+
+6) Options / background
+   - Clear patterns save → dynamic script unregisters (no errors in service worker console).
+   - Re-add pattern → permission prompt → content script runs on matching URL.
