@@ -266,6 +266,11 @@ export class TopicNavigatorCore {
   private floatingTip: HTMLElement | null = null;
   private tooltipHideTimer: number | undefined;
 
+  /** Debounced retries so lazy-rendered chats still pick the correct scroll anchor. */
+  private viewportSyncTimers: number[] = [];
+
+  private lastSyncScrollRoot: HTMLElement | Document | null = null;
+
   /** Outline panel overlay */
   private isPanelOpen = false;
   private fabButton: HTMLButtonElement | null = null;
@@ -292,6 +297,7 @@ export class TopicNavigatorCore {
   }
 
   destroy(): void {
+    this.clearViewportSyncTimers();
     window.removeEventListener('wheel', this.onWheelHideTip, { capture: true });
     if (this.debounceTimer) clearTimeout(this.debounceTimer);
     if (this.tooltipHideTimer) clearTimeout(this.tooltipHideTimer);
@@ -355,14 +361,40 @@ export class TopicNavigatorCore {
       return p.length > 0 ? p : `Turn ${i + 1}`;
     });
 
+    const syncRoot = scrollRoot ?? document.documentElement;
+    this.lastSyncScrollRoot = syncRoot;
+
     this.ensureBar();
     this.renderChrome();
-    this.setupIntersection(scrollRoot ?? document.documentElement);
-    queueMicrotask(() => this.measureAndLayoutDots());
-    this.highlightActive(Math.min(Math.max(this.activeIndex, 0), roots.length - 1));
+    this.setupIntersection(syncRoot);
+
+    queueMicrotask(() => {
+      this.measureAndLayoutDots();
+      this.syncActiveFromViewport(syncRoot);
+      this.scrollRailToShowActiveDot(false);
+    });
+    requestAnimationFrame(() => {
+      this.measureAndLayoutDots();
+      this.syncActiveFromViewport(syncRoot);
+      this.scrollRailToShowActiveDot(false);
+    });
+
+    /** Chat UIs hydrate after first paint — match Voyager-style delayed resync */
+    this.clearViewportSyncTimers();
+    const later = (): void => {
+      if (!this.bar || !this.roots.length || !document.getElementById(BAR_ID)) return;
+      const r = this.lastSyncScrollRoot ?? document.documentElement;
+      this.measureAndLayoutDots();
+      this.syncActiveFromViewport(r);
+      this.scrollRailToShowActiveDot(false);
+    };
+    for (const d of [420, 1200]) {
+      this.viewportSyncTimers.push(window.setTimeout(later, d));
+    }
   }
 
   private destroyExceptUi(): void {
+    this.clearViewportSyncTimers();
     if (this.debounceTimer) clearTimeout(this.debounceTimer);
     if (this.tooltipHideTimer) clearTimeout(this.tooltipHideTimer);
     this.mutationObserver?.disconnect();
@@ -389,6 +421,89 @@ export class TopicNavigatorCore {
     this.previewStrings = [];
     this.activeIndex = -1;
     this.isPanelOpen = false;
+    this.lastSyncScrollRoot = null;
+  }
+
+  private clearViewportSyncTimers(): void {
+    this.viewportSyncTimers.forEach((t) => clearTimeout(t));
+    this.viewportSyncTimers = [];
+  }
+
+  /**
+   * Pick the active user-turn from scroll/viewport (“reading line”).
+   * IntersectionObserver can miss the initial frame — this aligns dots + outline on enter.
+   */
+  private computeActiveIndexNearViewport(scrollRootLike: HTMLElement | Document): number {
+    if (!this.roots.length) return -1;
+
+    let stripTop = 0;
+    let stripBottom = typeof window !== 'undefined' ? window.innerHeight : 720;
+
+    if (
+      scrollRootLike instanceof HTMLElement &&
+      scrollRootLike !== document.documentElement &&
+      scrollRootLike !== document.body
+    ) {
+      const br = scrollRootLike.getBoundingClientRect();
+      stripTop = br.top;
+      stripBottom = br.bottom;
+    }
+
+    /** Focus slightly above centre — mirrors prior IO root-margin intent */
+    const focusY = stripTop + (stripBottom - stripTop) * 0.38;
+
+    const visibleStripe = (
+      rt: DOMRectReadOnly | DOMRect,
+    ): { insetH: number; top: number } => {
+      const intersectTop = Math.max(rt.top, stripTop);
+      const intersectBottom = Math.min(rt.bottom, stripBottom);
+      const insetH = intersectBottom > intersectTop ? intersectBottom - intersectTop : 0;
+      return { insetH, top: rt.top };
+    };
+
+    /** Scroll-spy: last turn whose top is still above the reading line (document order). */
+    let chosen = 0;
+    for (let i = 0; i < this.roots.length; i++) {
+      const { top } = visibleStripe(this.roots[i].getBoundingClientRect());
+      if (top <= focusY + 10) chosen = i;
+      else break;
+    }
+
+    const firstTop = this.roots[0].getBoundingClientRect().top;
+    if (firstTop > focusY + 48) {
+      let bestH = -1;
+      let bestIdx = 0;
+      for (let i = 0; i < this.roots.length; i++) {
+        const { insetH } = visibleStripe(this.roots[i].getBoundingClientRect());
+        if (insetH > bestH) {
+          bestH = insetH;
+          bestIdx = i;
+        }
+      }
+      if (bestH > 8) chosen = bestIdx;
+    }
+
+    const lastRect = this.roots[this.roots.length - 1].getBoundingClientRect();
+    if (lastRect.bottom < stripTop + 24) chosen = this.roots.length - 1;
+
+    return Math.min(Math.max(chosen, 0), this.roots.length - 1);
+  }
+
+  private syncActiveFromViewport(scrollRootLike: HTMLElement | Document): void {
+    const idx = this.computeActiveIndexNearViewport(scrollRootLike);
+    if (idx >= 0) this.highlightActive(idx);
+  }
+
+  private scrollRailToShowActiveDot(smooth?: boolean): void {
+    const stage = this.stageEl;
+    const dot = this.activeIndex >= 0 ? this.dots[this.activeIndex] : null;
+    if (!stage || !dot?.isConnected) return;
+    const beh = smooth ? 'smooth' : ('auto' as ScrollBehavior);
+    try {
+      dot.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: beh });
+    } catch {
+      dot.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    }
   }
 
   private mountStyles(): void {
@@ -487,7 +602,10 @@ export class TopicNavigatorCore {
     this.overlayEl?.setAttribute('aria-hidden', 'false');
     this.fabButton?.setAttribute('aria-expanded', 'true');
     this.fabButton?.setAttribute('aria-label', 'Close turn list');
-    queueMicrotask(() => this.searchInput?.focus({ preventScroll: true }));
+    queueMicrotask(() => {
+      this.updatePanelHighlight();
+      this.searchInput?.focus({ preventScroll: true });
+    });
   }
 
   private measureAndLayoutDots(): void {
@@ -706,7 +824,7 @@ export class TopicNavigatorCore {
           }
         });
         if (bestIdx >= 0 && bestRatio > 0) {
-          this.highlightActive(bestIdx);
+          this.highlightActive(bestIdx, true);
         }
       },
       { root, rootMargin: '-20% 0px -55% 0px', threshold: [0.05, 0.25, 0.5, 1] },
@@ -715,13 +833,15 @@ export class TopicNavigatorCore {
     this.roots.forEach((r) => this.intersectionObserver?.observe(r));
   }
 
-  private highlightActive(idx: number): void {
+  private highlightActive(idx: number, fromScrollIntersection?: boolean): void {
     if (idx < 0) return;
     this.activeIndex = idx;
     this.dots.forEach((d, j) => {
       d.classList.toggle('topic-nav-dot--active', j === idx);
     });
     this.updatePanelHighlight();
+    /** Keep the blue dot inside the capsule when many markers + user scroll */
+    if (fromScrollIntersection) queueMicrotask(() => this.scrollRailToShowActiveDot(true));
   }
 
   private updatePanelHighlight(): void {
@@ -730,6 +850,10 @@ export class TopicNavigatorCore {
       const hx = Number((el as HTMLElement).dataset.topicIndex);
       el.classList.toggle('topic-nav-summary-row--active', hx === this.activeIndex);
     });
+    if (!this.isPanelOpen) return;
+    const sel = `.topic-nav-summary-row[data-topic-index="${this.activeIndex}"]`;
+    const row = this.panelList.querySelector(sel) as HTMLElement | null;
+    row?.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' });
   }
 
   private scheduleRefresh(): void {
