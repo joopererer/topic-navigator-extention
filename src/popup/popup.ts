@@ -4,27 +4,115 @@ import {
   defaultTopicNavAppearance,
   parseTopicNavAppearance,
 } from '../core/appearance.js';
+import {
+  STORAGE_TOPIC_NAV_UI,
+  defaultUiPrefs,
+  parseTopicNavUiStored,
+  resolveUiLang,
+  type UiLangCode,
+  type UiLangPref,
+} from '../core/uiPrefs.js';
+import { t, type UiStringKey } from '../core/uiStrings.js';
 
-const shellWidth = document.getElementById('shellWidth') as HTMLInputElement;
-const trackBg = document.getElementById('trackBg') as HTMLInputElement;
-const trackBgOp = document.getElementById('trackBgOp') as HTMLInputElement;
-const trackBorder = document.getElementById('trackBorder') as HTMLInputElement;
-const trackBorderOp = document.getElementById('trackBorderOp') as HTMLInputElement;
-const dotIdleBg = document.getElementById('dotIdleBg') as HTMLInputElement;
-const dotIdleBorder = document.getElementById('dotIdleBorder') as HTMLInputElement;
-const dotIdleBorderOp = document.getElementById('dotIdleBorderOp') as HTMLInputElement;
-const dotActiveBg = document.getElementById('dotActiveBg') as HTMLInputElement;
-const dotActiveBorder = document.getElementById('dotActiveBorder') as HTMLInputElement;
-const dotStyle = document.getElementById('dotStyle') as HTMLSelectElement;
-const saveBtn = document.getElementById('save') as HTMLButtonElement;
-const resetBtn = document.getElementById('reset') as HTMLButtonElement;
-const openOpts = document.getElementById('openOptions') as HTMLButtonElement;
-const status = document.getElementById('status') as HTMLParagraphElement;
+function getEl(id: string): HTMLElement {
+  const el = document.getElementById(id);
+  if (!el) throw new Error(`#${id} missing`);
+  return el;
+}
 
-const lblW = document.getElementById('lblW') as HTMLSpanElement;
-const lblTrackOp = document.getElementById('lblTrackOp') as HTMLSpanElement;
-const lblBdOp = document.getElementById('lblBdOp') as HTMLSpanElement;
-const lblDotBdOp = document.getElementById('lblDotBdOp') as HTMLSpanElement;
+const localePref = getEl('localePref') as HTMLSelectElement;
+const shellWidth = getEl('shellWidth') as HTMLInputElement;
+const trackBg = getEl('trackBg') as HTMLInputElement;
+const trackBgOp = getEl('trackBgOp') as HTMLInputElement;
+const trackBorder = getEl('trackBorder') as HTMLInputElement;
+const trackBorderOp = getEl('trackBorderOp') as HTMLInputElement;
+const dotIdleBg = getEl('dotIdleBg') as HTMLInputElement;
+const dotIdleBgOp = getEl('dotIdleBgOp') as HTMLInputElement;
+const dotIdleBorder = getEl('dotIdleBorder') as HTMLInputElement;
+const dotIdleBorderOp = getEl('dotIdleBorderOp') as HTMLInputElement;
+const dotIdleBorderW = getEl('dotIdleBorderW') as HTMLInputElement;
+const dotActiveBg = getEl('dotActiveBg') as HTMLInputElement;
+const dotActiveBgOp = getEl('dotActiveBgOp') as HTMLInputElement;
+const dotActiveBorder = getEl('dotActiveBorder') as HTMLInputElement;
+const dotActiveBorderOp = getEl('dotActiveBorderOp') as HTMLInputElement;
+const dotActiveBorderW = getEl('dotActiveBorderW') as HTMLInputElement;
+const dotStyle = getEl('dotStyle') as HTMLSelectElement;
+const saveBtn = getEl('save') as HTMLButtonElement;
+const resetBtn = getEl('reset') as HTMLButtonElement;
+const openOpts = getEl('openOptions') as HTMLButtonElement;
+const status = getEl('status') as HTMLParagraphElement;
+
+const lblCapW = getEl('_lblCapW');
+const lblTrackBg = getEl('_lblTrackBg');
+const lblTrackBd = getEl('_lblTrackBd');
+const lblDotShape = getEl('_lblDotShape');
+const lblDotIdleBg = getEl('_lblDotIdleBg');
+const lblDotIdleBd = getEl('_lblDotIdleBd');
+const lblDotIdleBdW = getEl('_lblDotIdleBdW');
+const lblDotActiveBg = getEl('_lblDotActiveBg');
+const lblDotActiveBd = getEl('_lblDotActiveBd');
+const lblDotActiveBdW = getEl('_lblDotActiveBdW');
+const lblLocaleHeading = getEl('_lblLocaleHeading');
+
+function ux(lang: UiLangCode, key: UiStringKey, vars?: Record<string, string | number>): string {
+  return t(lang, key, vars);
+}
+
+function prefFromSelect(): UiLangPref {
+  const v = localePref.value;
+  if (v === 'zh' || v === 'fr' || v === 'en') return v;
+  return 'auto';
+}
+
+function langForChrome(): UiLangCode {
+  return resolveUiLang(prefFromSelect());
+}
+
+function refreshLocaleChoices(lang: UiLangCode): void {
+  localePref.options[0]!.text = ux(lang, 'localeAuto');
+  localePref.options[1]!.text = ux(lang, 'localeEn');
+  localePref.options[2]!.text = ux(lang, 'localeZh');
+  localePref.options[3]!.text = ux(lang, 'localeFr');
+}
+
+function applyDotStyleOptionLabels(lang: UiLangCode): void {
+  for (const opt of [...dotStyle.options]) {
+    const k = opt.dataset.key as UiStringKey | undefined;
+    if (k === 'dotStyleSolid' || k === 'dotStyleHollow' || k === 'dotStyleOutline') {
+      opt.textContent = ux(lang, k);
+    }
+  }
+}
+
+function applyChromeStrings(lang: UiLangCode): void {
+  document.documentElement.lang = lang === 'zh' ? 'zh-Hans' : lang === 'fr' ? 'fr' : 'en';
+  document.title = ux(lang, 'popupTitle');
+
+  refreshLocaleChoices(lang);
+  getEl('_hTitle').textContent = ux(lang, 'popupTitle');
+  getEl('_pSub').textContent = ux(lang, 'popupSubtitle');
+  lblLocaleHeading.textContent = ux(lang, 'localeLabel');
+
+  lblCapW.textContent = ux(lang, 'capsuleWidth', { w: `${shellWidth.value}px` });
+  lblTrackBg.textContent = ux(lang, 'trackBgOpacity', { p: `${trackBgOp.value}%` });
+  lblTrackBd.textContent = ux(lang, 'trackBorderOpacity', { p: `${trackBorderOp.value}%` });
+  lblDotShape.textContent = ux(lang, 'dotUnifiedStyle');
+  applyDotStyleOptionLabels(lang);
+  lblDotIdleBg.textContent = `${ux(lang, 'dotInactiveBg')} · ${dotIdleBgOp.value}%`;
+  lblDotIdleBd.textContent = `${ux(lang, 'dotInactiveBorder')} · ${dotIdleBorderOp.value}%`;
+  lblDotIdleBdW.textContent = ux(lang, 'dotInactiveBorderWidth', {
+    w: `${(Number(dotIdleBorderW.value) / 10).toFixed(1)}px`,
+  });
+  lblDotActiveBg.textContent = `${ux(lang, 'dotActiveBg')} · ${dotActiveBgOp.value}%`;
+  lblDotActiveBd.textContent = `${ux(lang, 'dotActiveBorder')} · ${dotActiveBorderOp.value}%`;
+  lblDotActiveBdW.textContent = ux(lang, 'dotActiveBorderWidth', {
+    w: `${(Number(dotActiveBorderW.value) / 10).toFixed(1)}px`,
+  });
+
+  saveBtn.textContent = ux(lang, 'btnSave');
+  resetBtn.textContent = ux(lang, 'btnReset');
+  openOpts.textContent = ux(lang, 'btnOptions');
+}
 
 function hydrate(a: TopicNavAppearanceStored): void {
   shellWidth.value = String(a.shellWidthPx);
@@ -33,47 +121,77 @@ function hydrate(a: TopicNavAppearanceStored): void {
   trackBorder.value = a.trackBorderHex;
   trackBorderOp.value = String(a.trackBorderOpacityPct);
   dotIdleBg.value = a.dotIdleBgHex;
+  dotIdleBgOp.value = String(a.dotIdleBgOpacityPct);
   dotIdleBorder.value = a.dotIdleBorderHex;
   dotIdleBorderOp.value = String(a.dotIdleBorderOpacityPct);
+  dotIdleBorderW.value = String(Math.round(a.dotIdleBorderWidthPx * 10));
   dotActiveBg.value = a.dotActiveBgHex;
+  dotActiveBgOp.value = String(a.dotActiveBgOpacityPct);
   dotActiveBorder.value = a.dotActiveBorderHex;
+  dotActiveBorderOp.value = String(a.dotActiveBorderOpacityPct);
+  dotActiveBorderW.value = String(Math.round(a.dotActiveBorderWidthPx * 10));
   dotStyle.value = a.dotStyle;
-  syncLabels();
+  applyChromeStrings(langForChrome());
 }
 
 function readFromForm(): TopicNavAppearanceStored {
   return (
     parseTopicNavAppearance({
-      v: 1,
+      v: 2,
       shellWidthPx: Number(shellWidth.value),
       trackBgHex: trackBg.value,
       trackBgOpacityPct: Number(trackBgOp.value),
       trackBorderHex: trackBorder.value,
       trackBorderOpacityPct: Number(trackBorderOp.value),
+      dotStyle: dotStyle.value === 'outline' ? 'outline' : dotStyle.value === 'hollow' ? 'hollow' : 'solid',
       dotIdleBgHex: dotIdleBg.value,
+      dotIdleBgOpacityPct: Number(dotIdleBgOp.value),
       dotIdleBorderHex: dotIdleBorder.value,
       dotIdleBorderOpacityPct: Number(dotIdleBorderOp.value),
+      dotIdleBorderWidthPx: Number(dotIdleBorderW.value) / 10,
       dotActiveBgHex: dotActiveBg.value,
+      dotActiveBgOpacityPct: Number(dotActiveBgOp.value),
       dotActiveBorderHex: dotActiveBorder.value,
-      dotStyle: dotStyle.value === 'outline' ? 'outline' : dotStyle.value === 'hollow' ? 'hollow' : 'solid',
+      dotActiveBorderOpacityPct: Number(dotActiveBorderOp.value),
+      dotActiveBorderWidthPx: Number(dotActiveBorderW.value) / 10,
     }) ?? defaultTopicNavAppearance()
   );
 }
 
-function syncLabels(): void {
-  lblW.textContent = `${shellWidth.value}px`;
-  lblTrackOp.textContent = `${trackBgOp.value}%`;
-  lblBdOp.textContent = `${trackBorderOp.value}%`;
-  lblDotBdOp.textContent = `${dotIdleBorderOp.value}%`;
+async function persistLocalePrefs(): Promise<void> {
+  const raw: UiLangPref = prefFromSelect();
+  await chrome.storage.sync.set({
+    [STORAGE_TOPIC_NAV_UI]: { v: 1, langPref: raw } satisfies { v: 1; langPref: UiLangPref },
+  });
+  applyChromeStrings(langForChrome());
 }
 
-shellWidth.addEventListener('input', syncLabels);
-trackBgOp.addEventListener('input', syncLabels);
-trackBorderOp.addEventListener('input', syncLabels);
-dotIdleBorderOp.addEventListener('input', syncLabels);
+function syncSliderLabels(): void {
+  applyChromeStrings(langForChrome());
+}
+
+[
+  shellWidth,
+  trackBgOp,
+  trackBorderOp,
+  dotIdleBgOp,
+  dotIdleBorderOp,
+  dotIdleBorderW,
+  dotActiveBgOp,
+  dotActiveBorderOp,
+  dotActiveBorderW,
+].forEach((el) => el.addEventListener('input', syncSliderLabels));
+
+dotStyle.addEventListener('change', syncSliderLabels);
+
+localePref.addEventListener('change', () => void persistLocalePrefs());
 
 async function load(): Promise<void> {
-  const bag = await chrome.storage.sync.get(STORAGE_TOPIC_NAV_APPEARANCE);
+  const bag = await chrome.storage.sync.get([STORAGE_TOPIC_NAV_APPEARANCE, STORAGE_TOPIC_NAV_UI]);
+  const rawUi = bag[STORAGE_TOPIC_NAV_UI as keyof typeof bag];
+  const ui = parseTopicNavUiStored(rawUi) ?? defaultUiPrefs();
+  localePref.value = ui.langPref;
+
   const raw = bag[STORAGE_TOPIC_NAV_APPEARANCE as keyof typeof bag];
   const parsed = parseTopicNavAppearance(raw);
   hydrate(parsed ?? defaultTopicNavAppearance());
@@ -84,15 +202,17 @@ saveBtn.addEventListener('click', async () => {
   const next = readFromForm();
   await chrome.storage.sync.set({
     [STORAGE_TOPIC_NAV_APPEARANCE]: next,
+    [STORAGE_TOPIC_NAV_UI]: { v: 1, langPref: prefFromSelect() },
   });
-  status.textContent = '已保存。已打开的标签会自动更新样式；否则切换一下对话即可。';
+  applyChromeStrings(langForChrome());
+  status.textContent = ux(langForChrome(), 'savedStatus');
 });
 
 resetBtn.addEventListener('click', async () => {
   status.textContent = '';
   await chrome.storage.sync.remove(STORAGE_TOPIC_NAV_APPEARANCE as unknown as string);
   hydrate(defaultTopicNavAppearance());
-  status.textContent = '已清除自定义并已同步到打开的会话标签。';
+  status.textContent = ux(langForChrome(), 'resetStatus');
 });
 
 openOpts.addEventListener('click', () => chrome.runtime.openOptionsPage());

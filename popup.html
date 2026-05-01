@@ -1,33 +1,43 @@
 <!doctype html>
-<html lang="zh-Hans">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Topic Navigator</title>
+    <style>
+      body {
+        margin: 0;
+        min-width: 306px;
+        max-width: 380px;
+        font: 13px ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+        color: #1a1a1a;
+        background: #fafafa;
+      }
+    </style>
   </head>
-  <body
-    style="
-      margin: 0;
-      min-width: 300px;
-      max-width: 360px;
-      font: 13px ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-      color: #1a1a1a;
-      background: #fafafa;
-    ">
+  <body>
     <main style="padding: 12px 14px 14px">
-      <h1 style="margin: 0 0 10px; font-size: 1rem; font-weight: 650">Topic Navigator</h1>
-      <p style="margin: 0 0 12px; font-size: 11.5px; line-height: 1.35; color: #555">
-        时间轴胶囊与节点的颜色会同步到当前已打开的会话页。
-      </p>
+      <h1 id="_hTitle" style="margin: 0 0 10px; font-size: 1rem; font-weight: 650">Topic Navigator</h1>
+      <p id="_pSub" style="margin: 0 0 10px; font-size: 11.5px; line-height: 1.38; color: #555"></p>
+
+      <label style="display: grid; gap: 4px; margin-bottom: 10px">
+        <span id="_lblLocaleHeading" style="font-size: 11px; font-weight: 600; color: #444"></span>
+        <select id="localePref" style="padding: 5px 6px; border-radius: 6px; border: 1px solid #ccc; font: inherit">
+          <option value="auto">Auto</option>
+          <option value="en">English</option>
+          <option value="zh">中文</option>
+          <option value="fr">Français</option>
+        </select>
+      </label>
 
       <section style="display: grid; gap: 10px">
         <label style="display: grid; gap: 3px">
-          <span style="font-size: 11px; font-weight: 600; color: #444">胶囊宽度 × <span id="lblW"></span></span>
+          <span id="_lblCapW" style="font-size: 11px; font-weight: 600; color: #444"></span>
           <input id="shellWidth" type="range" min="12" max="36" step="1" />
         </label>
 
         <label style="display: grid; gap: 3px">
-          <span style="font-size: 11px; font-weight: 600; color: #444">胶囊底色 · 透明度 <span id="lblTrackOp"></span></span>
+          <span id="_lblTrackBg" style="font-size: 11px; font-weight: 600; color: #444"></span>
           <span style="display: flex; gap: 6px; align-items: center">
             <input id="trackBg" type="color" style="width: 42px; height: 28px; padding: 0; border: none; cursor: pointer" />
             <input id="trackBgOp" type="range" min="20" max="100" />
@@ -35,7 +45,7 @@
         </label>
 
         <label style="display: grid; gap: 3px">
-          <span style="font-size: 11px; font-weight: 600; color: #444">胶囊描边 · 透明度 <span id="lblBdOp"></span></span>
+          <span id="_lblTrackBd" style="font-size: 11px; font-weight: 600; color: #444"></span>
           <span style="display: flex; gap: 6px; align-items: center">
             <input id="trackBorder" type="color" style="width: 42px; height: 28px; padding: 0; border: none; cursor: pointer" />
             <input id="trackBorderOp" type="range" min="4" max="100" />
@@ -43,48 +53,59 @@
         </label>
 
         <label style="display: grid; gap: 3px">
-          <span style="font-size: 11px; font-weight: 600; color: #444">节点（未选中）底色</span>
-          <input id="dotIdleBg" type="color" style="width: 100%; height: 28px; padding: 0; border: none; cursor: pointer" />
+          <span id="_lblDotShape" style="font-size: 11px; font-weight: 600; color: #444"></span>
+          <select id="dotStyle" style="padding: 5px 6px; border-radius: 6px; border: 1px solid #ccc; font: inherit">
+            <option value="solid" data-key="dotStyleSolid">Solid</option>
+            <option value="hollow" data-key="dotStyleHollow">Hollow</option>
+            <option value="outline" data-key="dotStyleOutline">Outline</option>
+          </select>
         </label>
 
         <label style="display: grid; gap: 3px">
-          <span style="font-size: 11px; font-weight: 600; color: #444">节点描边 · 透明度 <span id="lblDotBdOp"></span></span>
+          <span id="_lblDotIdleBg" style="font-size: 11px; font-weight: 600; color: #444"></span>
+          <span style="display: flex; gap: 6px; align-items: center">
+            <input id="dotIdleBg" type="color" style="flex: 0 0 42px; height: 28px; padding: 0; border: none; cursor: pointer" />
+            <input id="dotIdleBgOp" type="range" min="0" max="100" />
+          </span>
+        </label>
+
+        <label style="display: grid; gap: 3px">
+          <span id="_lblDotIdleBd" style="font-size: 11px; font-weight: 600; color: #444"></span>
           <span style="display: flex; gap: 6px; align-items: center">
             <input id="dotIdleBorder" type="color" style="width: 42px; height: 28px; padding: 0; border: none; cursor: pointer" />
             <input id="dotIdleBorderOp" type="range" min="12" max="100" />
           </span>
         </label>
-
         <label style="display: grid; gap: 3px">
-          <span style="font-size: 11px; font-weight: 600; color: #444">当前节点底色</span>
-          <input id="dotActiveBg" type="color" style="width: 100%; height: 28px; padding: 0; border: none; cursor: pointer" />
+          <span id="_lblDotIdleBdW" style="font-size: 11px; font-weight: 600; color: #444"></span>
+          <input id="dotIdleBorderW" type="range" min="10" max="80" step="1" />
         </label>
 
         <label style="display: grid; gap: 3px">
-          <span style="font-size: 11px; font-weight: 600; color: #444">当前节点描边色</span>
-          <input id="dotActiveBorder" type="color" style="width: 100%; height: 28px; padding: 0; border: none; cursor: pointer" />
+          <span id="_lblDotActiveBg" style="font-size: 11px; font-weight: 600; color: #444"></span>
+          <span style="display: flex; gap: 6px; align-items: center">
+            <input id="dotActiveBg" type="color" style="flex: 0 0 42px; height: 28px; padding: 0; border: none; cursor: pointer" />
+            <input id="dotActiveBgOp" type="range" min="0" max="100" />
+          </span>
         </label>
 
         <label style="display: grid; gap: 3px">
-          <span style="font-size: 11px; font-weight: 600; color: #444">节点样式</span>
-          <select id="dotStyle" style="padding: 5px 6px; border-radius: 6px; border: 1px solid #ccc; font: inherit">
-            <option value="solid">实心</option>
-            <option value="hollow">空心</option>
-            <option value="outline">粗描边</option>
-          </select>
+          <span id="_lblDotActiveBd" style="font-size: 11px; font-weight: 600; color: #444"></span>
+          <span style="display: flex; gap: 6px; align-items: center">
+            <input id="dotActiveBorder" type="color" style="width: 42px; height: 28px; padding: 0; border: none; cursor: pointer" />
+            <input id="dotActiveBorderOp" type="range" min="12" max="100" />
+          </span>
+        </label>
+        <label style="display: grid; gap: 3px">
+          <span id="_lblDotActiveBdW" style="font-size: 11px; font-weight: 600; color: #444"></span>
+          <input id="dotActiveBorderW" type="range" min="10" max="100" step="1" />
         </label>
       </section>
 
       <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px">
-        <button id="save" type="button" style="padding: 6px 12px; border-radius: 7px; border: 1px solid #bbb; cursor: pointer; font: inherit">
-          保存并应用
-        </button>
-        <button id="reset" type="button" style="padding: 6px 12px; border-radius: 7px; border: 1px solid #bbb; cursor: pointer; font: inherit; background: #fff">
-          恢复默认
-        </button>
-        <button id="openOptions" type="button" style="padding: 6px 10px; border-radius: 7px; border: none; cursor: pointer; font: inherit; color: #2563eb; background: transparent">
-          选项页 · Onyx
-        </button>
+        <button id="save" type="button" style="padding: 6px 12px; border-radius: 7px; border: 1px solid #bbb; cursor: pointer; font: inherit"></button>
+        <button id="reset" type="button" style="padding: 6px 12px; border-radius: 7px; border: 1px solid #bbb; cursor: pointer; font: inherit; background: #fff"></button>
+        <button id="openOptions" type="button" style="padding: 6px 10px; border-radius: 7px; border: none; cursor: pointer; font: inherit; color: #2563eb; background: transparent"></button>
       </div>
       <p id="status" role="status" style="margin: 10px 0 0; min-height: 1.25em; font-size: 11px; color: #0a6626"></p>
     </main>

@@ -5,11 +5,24 @@ import {
   type TopicNavAppearanceStored,
 } from './appearance.js';
 import { extractTurnPreview, getScrollParent } from './domUtils.js';
+import {
+  STORAGE_TOPIC_NAV_UI,
+  defaultUiPrefs,
+  parseTopicNavUiStored,
+  resolveUiLang,
+  type UiLangCode,
+} from './uiPrefs.js';
+import { t as uiTxt, type UiStringKey } from './uiStrings.js';
 import type { PlatformAdapter } from './types.js';
 
 const BAR_ID = 'topic-navigator-bar';
 const HOST_STYLE_ID = 'topic-navigator-host-styles';
 const USER_APPEARANCE_STYLE_ID = 'topic-navigator-appearance-styles';
+
+/** Inline HTML attribute escapes for localized search field */
+function escapeAttr(s: string): string {
+  return s.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+}
 
 /** Minimum spacing between dot centers — scrollable rail grows when exceeded. */
 const MIN_DOT_SPACING_PX = 15;
@@ -30,10 +43,12 @@ const HOST_STYLES = `
   --tn-stage-bg: color-mix(in srgb, Canvas 88%, CanvasText 10%);
   --tn-stage-border: color-mix(in srgb, CanvasText 14%, transparent);
   --tn-dot-size: 10px;
-  --tn-dot-bg: color-mix(in srgb, Canvas 55%, CanvasText 10%);
-  --tn-dot-border: color-mix(in srgb, CanvasText 32%, transparent);
+  --tn-dot-idle-bg: color-mix(in srgb, Canvas 55%, CanvasText 10%);
+  --tn-dot-idle-border: color-mix(in srgb, CanvasText 32%, transparent);
+  --tn-dot-idle-border-w: 1.5px;
   --tn-dot-active-bg: #2563eb;
   --tn-dot-active-border: color-mix(in srgb, #2563eb 55%, CanvasText);
+  --tn-dot-active-border-w: 2px;
 }
 #${BAR_ID} * {
   box-sizing: border-box;
@@ -149,27 +164,33 @@ const HOST_STYLES = `
   height: var(--tn-dot-size);
   padding: 0;
   border-radius: 999px;
-  border: 1.5px solid var(--tn-dot-border);
-  background: var(--tn-dot-bg);
+  border-style: solid;
+  border-width: var(--tn-dot-idle-border-w);
+  border-color: var(--tn-dot-idle-border);
+  background: var(--tn-dot-idle-bg);
   cursor: pointer;
   flex-shrink: 0;
-  transition: transform 0.12s ease, background 0.12s ease, border-color 0.12s ease;
+  transition:
+    transform 0.12s ease,
+    background 0.12s ease,
+    border-color 0.12s ease,
+    border-width 0.12s ease;
 }
-#${BAR_ID}[data-tn-dot-style="hollow"] .topic-nav-dot:not(.topic-nav-dot--active) {
-  background: transparent;
-  border-width: 2px;
-}
+#${BAR_ID}[data-tn-dot-style="hollow"] .topic-nav-dot:not(.topic-nav-dot--active),
 #${BAR_ID}[data-tn-dot-style="outline"] .topic-nav-dot:not(.topic-nav-dot--active) {
-  background: transparent;
-  border-width: 2.5px;
-  border-style: solid;
+  background: transparent !important;
+}
+#${BAR_ID}[data-tn-dot-style="hollow"] .topic-nav-dot.topic-nav-dot--active,
+#${BAR_ID}[data-tn-dot-style="outline"] .topic-nav-dot.topic-nav-dot--active {
+  background: transparent !important;
 }
 #${BAR_ID} .topic-nav-dot:hover {
   transform: translate(-50%, -50%) scale(1.2);
 }
 #${BAR_ID} .topic-nav-dot.topic-nav-dot--active {
-  background: var(--tn-dot-active-bg);
+  border-width: var(--tn-dot-active-border-w);
   border-color: var(--tn-dot-active-border);
+  background: var(--tn-dot-active-bg);
   transform: translate(-50%, -50%) scale(1.3);
 }
 
@@ -237,7 +258,7 @@ const HOST_STYLES = `
   text-overflow: ellipsis;
 }
 
-/* Floating tooltip (not native title) — appended under #${BAR_ID} */
+/* Hover tooltip follows capsule track (--tn-stage-*) filled from theme / popup overrides */
 #${BAR_ID} .topic-nav-tooltip-float {
   position: fixed;
   z-index: 2147483640;
@@ -248,8 +269,8 @@ const HOST_STYLES = `
   line-height: 1.38;
   font-weight: 500;
   color: CanvasText;
-  background: color-mix(in srgb, Canvas 94%, CanvasText 8%);
-  border: 1px solid color-mix(in srgb, CanvasText 16%, transparent);
+  background: var(--tn-stage-bg);
+  border: 1px solid var(--tn-stage-border);
   box-shadow: 0 12px 36px rgba(0, 0, 0, 0.26);
   pointer-events: none;
   opacity: 0;
@@ -276,6 +297,7 @@ const HOST_STYLES = `
 
 export class TopicNavigatorCore {
   private adapter: PlatformAdapter;
+  private uiLang: UiLangCode = 'en';
   private bar: HTMLElement | null = null;
   private dots: HTMLElement[] = [];
   private roots: HTMLElement[] = [];
@@ -316,9 +338,8 @@ export class TopicNavigatorCore {
     this.adapter = adapter;
   }
 
-  /** Apply appearance from `chrome.storage.sync` without rebuilding the navigator. */
-  reloadAppearance(): void {
-    void this.refreshUserAppearance();
+  private ux(key: UiStringKey, vars?: Record<string, string | number>): string {
+    return uiTxt(this.uiLang, key, vars);
   }
 
   private clearUserAppearance(): void {
@@ -340,19 +361,18 @@ export class TopicNavigatorCore {
     tag.textContent = buildTopicNavAppearanceStyle(a);
   }
 
-  private async refreshUserAppearance(): Promise<void> {
+  /** Language + capsule/dot theme from chrome.storage.sync (requires `this.bar`). */
+  private async hydrateSyncedSettings(): Promise<void> {
     try {
-      if (typeof chrome === 'undefined' || !chrome.storage?.sync?.get) {
-        return;
-      }
-      const bag = await chrome.storage.sync.get(STORAGE_TOPIC_NAV_APPEARANCE);
-      const raw = bag[STORAGE_TOPIC_NAV_APPEARANCE as keyof typeof bag];
-      const parsed = parseTopicNavAppearance(raw);
-      if (!parsed) {
-        this.clearUserAppearance();
-        return;
-      }
-      this.applyUserAppearanceSync(parsed);
+      if (typeof chrome === 'undefined' || !chrome.storage?.sync?.get) return;
+      const bag = await chrome.storage.sync.get([STORAGE_TOPIC_NAV_APPEARANCE, STORAGE_TOPIC_NAV_UI]);
+      const rawUi = bag[STORAGE_TOPIC_NAV_UI as keyof typeof bag];
+      const prefs = parseTopicNavUiStored(rawUi) ?? defaultUiPrefs();
+      this.uiLang = resolveUiLang(prefs.langPref);
+      const rawA = bag[STORAGE_TOPIC_NAV_APPEARANCE as keyof typeof bag];
+      const parsed = parseTopicNavAppearance(rawA);
+      if (!parsed) this.clearUserAppearance();
+      else this.applyUserAppearanceSync(parsed);
     } catch {
       /* ignore */
     }
@@ -398,6 +418,10 @@ export class TopicNavigatorCore {
   }
 
   refresh(): void {
+    void this.refreshAsync();
+  }
+
+  private async refreshAsync(): Promise<void> {
     if (!this.adapter.matchesLocation(new URL(location.href))) {
       this.destroyExceptUi();
       return;
@@ -431,16 +455,17 @@ export class TopicNavigatorCore {
       return;
     }
 
-    this.previewStrings = roots.map((el, i) => {
-      const p = extractTurnPreview(el).trim();
-      return p.length > 0 ? p : `Turn ${i + 1}`;
-    });
-
     const syncRoot = scrollRoot ?? document.documentElement;
     this.lastSyncScrollRoot = syncRoot;
 
     this.ensureBar();
-    void this.refreshUserAppearance();
+    await this.hydrateSyncedSettings();
+
+    this.previewStrings = roots.map((el, i) => {
+      const p = extractTurnPreview(el).trim();
+      return p.length > 0 ? p : this.ux('turnFallback', { n: i + 1 });
+    });
+
     this.renderChrome();
     this.setupIntersection(syncRoot);
     this.attachConversationScrollListeners(syncRoot);
@@ -776,18 +801,33 @@ export class TopicNavigatorCore {
     });
   }
 
+  /** `aria-label` for a timeline dot — uses excerpt only when DOM actually has preview text */
+  private dotAccessibilityLabel(index: number): string {
+    const root = this.roots[index];
+    const extractedOk = !!(root && extractTurnPreview(root).trim().length > 0);
+    const n = index + 1;
+    const preview = this.previewStrings[index] ?? '';
+    return extractedOk
+      ? this.ux('turnAriaWithPreview', { n, preview })
+      : this.ux('turnAria', { n });
+  }
+
   private bindDotHover(dot: HTMLElement, preview: string, index: number): void {
-    const text = `${index + 1}. ${preview}`;
+    const n = index + 1;
+    const text = `${n}. ${preview}`;
+    const dotAria = this.dotAccessibilityLabel(index);
+
     dot.addEventListener('mouseenter', () => {
       if (this.tooltipHideTimer) clearTimeout(this.tooltipHideTimer);
       const tip = this.floatingTip;
       if (!tip) return;
       tip.textContent = text;
-      dot.setAttribute('aria-label', `Turn ${index + 1}${preview ? `: ${preview}` : ''}`);
+      dot.setAttribute('aria-label', dotAria);
       this.positionTooltip(dot);
     });
     dot.addEventListener('mouseleave', () => this.hideTooltip());
     dot.addEventListener('focus', () => {
+      dot.setAttribute('aria-label', dotAria);
       const tip = this.floatingTip;
       if (!tip) return;
       tip.textContent = text;
@@ -801,7 +841,7 @@ export class TopicNavigatorCore {
     this.overlayEl?.classList.remove('topic-nav-overlay--open');
     this.overlayEl?.setAttribute('aria-hidden', 'true');
     this.fabButton?.setAttribute('aria-expanded', 'false');
-    this.fabButton?.setAttribute('aria-label', 'Open turn list');
+    this.fabButton?.setAttribute('aria-label', this.ux('fabOpenList'));
     this.hideTooltip(true);
   }
 
@@ -810,7 +850,7 @@ export class TopicNavigatorCore {
     this.overlayEl?.classList.add('topic-nav-overlay--open');
     this.overlayEl?.setAttribute('aria-hidden', 'false');
     this.fabButton?.setAttribute('aria-expanded', 'true');
-    this.fabButton?.setAttribute('aria-label', 'Close turn list');
+    this.fabButton?.setAttribute('aria-label', this.ux('fabCloseList'));
     queueMicrotask(() => {
       this.updatePanelHighlight();
       this.searchInput?.focus({ preventScroll: true });
@@ -875,12 +915,12 @@ export class TopicNavigatorCore {
     sheet.className = 'topic-nav-sheet';
     sheet.setAttribute('role', 'dialog');
     sheet.setAttribute('aria-modal', 'true');
-    sheet.setAttribute('aria-label', 'Conversation outline');
+    sheet.setAttribute('aria-label', this.ux('outlineDialogAria'));
 
     sheet.innerHTML = `
       <div class="topic-nav-panel-head">
-        <input type="search" class="topic-nav-search" placeholder="Search turns…"
-          autocomplete="off" spellcheck="false" aria-label="Filter turns"/>
+        <input type="search" class="topic-nav-search" placeholder="${escapeAttr(this.ux('searchTurnsPlaceholder'))}"
+          autocomplete="off" spellcheck="false" aria-label="${escapeAttr(this.ux('searchTurnsAria'))}"/>
       </div>
       <div class="topic-nav-panel-body topic-nav-summary-list"></div>
     `;
@@ -901,7 +941,10 @@ export class TopicNavigatorCore {
     fab.className = 'topic-nav-fab';
     fab.setAttribute('aria-haspopup', 'dialog');
     fab.setAttribute('aria-expanded', this.isPanelOpen ? 'true' : 'false');
-    fab.setAttribute('aria-label', this.isPanelOpen ? 'Close turn list' : 'Open turn list');
+    fab.setAttribute(
+      'aria-label',
+      this.isPanelOpen ? this.ux('fabCloseList') : this.ux('fabOpenList'),
+    );
     fab.innerHTML =
       `<svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" viewBox="0 0 24 24" aria-hidden="true">
         <path d="M8 6h13M8 12h13M8 18h13M3 6h1M3 12h1M3 18h1"/></svg>`;
@@ -910,6 +953,11 @@ export class TopicNavigatorCore {
       if (this.isPanelOpen) this.closeOutlinePanel();
       else this.openOutlinePanel();
       overlay.setAttribute('aria-hidden', (!this.isPanelOpen).toString());
+      fab.setAttribute(
+        'aria-label',
+        this.isPanelOpen ? this.ux('fabCloseList') : this.ux('fabOpenList'),
+      );
+      fab.setAttribute('aria-expanded', this.isPanelOpen ? 'true' : 'false');
     });
     this.fabButton = fab;
 
@@ -933,9 +981,9 @@ export class TopicNavigatorCore {
       dot.type = 'button';
       dot.className = 'topic-nav-dot';
       const brief = this.previewStrings[i] ?? '';
-      dot.setAttribute('aria-label', `Turn ${i + 1}${brief ? `: ${brief}` : ''}`);
+      dot.setAttribute('aria-label', this.dotAccessibilityLabel(i));
       dot.addEventListener('click', () => this.scrollToIndex(i));
-      this.bindDotHover(dot, brief || `Turn ${i + 1}`, i);
+      this.bindDotHover(dot, brief, i);
 
       slot.appendChild(dot);
       stageInner.appendChild(slot);
@@ -972,7 +1020,12 @@ export class TopicNavigatorCore {
       row.type = 'button';
       row.className = 'topic-nav-summary-row';
       row.dataset.topicIndex = String(i);
-      row.setAttribute('aria-label', `Turn ${num}: ${text}`);
+      row.setAttribute(
+        'aria-label',
+        text.trim()
+          ? this.ux('outlineRowAria', { n: Number(num), text })
+          : this.ux('turnAria', { n: Number(num) }),
+      );
 
       const idx = document.createElement('span');
       idx.className = 'topic-nav-summary-idx';
@@ -980,7 +1033,7 @@ export class TopicNavigatorCore {
 
       const span = document.createElement('span');
       span.className = 'topic-nav-summary-text';
-      span.textContent = text || `Turn ${num}`;
+      span.textContent = text || this.ux('turnFallback', { n: Number(num) });
 
       row.append(idx, span);
       row.addEventListener('click', () => this.scrollToIndex(i));

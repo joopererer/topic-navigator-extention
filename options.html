@@ -6,25 +6,31 @@
     <title>Topic Navigator · Options</title>
   </head>
   <body style="font-family: system-ui, sans-serif; max-width: 52rem; margin: 2rem auto; padding: 0 1rem">
-    <h1>Topic Navigator</h1>
-    <p>
-      Self-hosted Onyx uses your own hostname. Enter Chrome
-      <a href="https://developer.chrome.com/docs/extensions/develop/concepts/match-patterns">match patterns</a>
-      (one per line). Saving asks for permission and registers the content script on those URLs.
-    </p>
-    <label for="patterns"><strong>Onyx patterns</strong></label>
+    <h1 id="optTitle"></h1>
+
+    <label
+      id="localeBlock"
+      for="localePref"
+      style="display: grid; gap: 0.35rem; margin: 2rem 0 1.25rem; max-width: 22rem; font-weight: normal">
+      <strong id="localeLbl" style="font-size: 1rem"></strong>
+      <select id="localePref" style="padding: 0.35rem 0.45rem">
+        <option value="auto">Auto</option>
+        <option value="en">English</option>
+        <option value="zh">中文</option>
+        <option value="fr">Français</option>
+      </select>
+    </label>
+
+    <p id="introLine" style="line-height: 1.5"></p>
+
+    <label for="patterns" style="display: block; margin-top: 1.25rem"><strong id="patternsLabel"></strong></label>
     <textarea
       id="patterns"
       rows="10"
       style="display: block; width: 100%; font-family: ui-monospace, monospace; margin-top: 0.5rem"
-      placeholder="https://onyx.internal.example.com/chat*"
     ></textarea>
-    <p style="font-size: 0.8125rem; color: color-mix(in srgb, CanvasText 72%, Canvas)">
-      Examples: https://company-onyx.app/chat<span>*</span> · http://127.0.0.1:3000/*
-    </p>
-    <button id="save" type="button" style="margin-top: 0.5rem; padding: 0.4rem 0.85rem">
-      Save &amp; register
-    </button>
+    <p id="examples" style="font-size: 0.8125rem; color: color-mix(in srgb, CanvasText 72%, Canvas)"></p>
+    <button id="save" type="button" style="margin-top: 0.5rem; padding: 0.4rem 0.85rem"></button>
     <p id="status" role="status" style="margin-top: 1rem"></p>
     <script type="module" src="/src/options/options.ts"></script>
   </body>

@@ -1,4 +1,5 @@
 import { STORAGE_TOPIC_NAV_APPEARANCE } from '../core/appearance.js';
+import { STORAGE_TOPIC_NAV_UI } from '../core/uiPrefs.js';
 import { TopicNavigatorCore } from '../core/TopicNavigatorCore.js';
 import { patchSpaNavigation } from '../core/spaRouter.js';
 import { STORAGE_CUSTOM_ONYX } from '../core/types.js';
@@ -46,7 +47,7 @@ const unPatch = patchSpaNavigation(() => {
 chrome.storage.onChanged.addListener((changes, area) => {
   if (area !== 'sync') return;
   if (changes[STORAGE_CUSTOM_ONYX]) scheduleBoot();
-  if (changes[STORAGE_TOPIC_NAV_APPEARANCE]) core?.reloadAppearance();
+  if (changes[STORAGE_TOPIC_NAV_APPEARANCE] || changes[STORAGE_TOPIC_NAV_UI]) core?.refresh();
 });
 
 window.addEventListener(
