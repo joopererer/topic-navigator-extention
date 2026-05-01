@@ -491,9 +491,49 @@ export class TopicNavigatorCore {
 
     targets.add(window);
 
+    if (this.adapter.id === 'chatgpt') {
+      document.addEventListener('scroll', scheduleViewportSync, {
+        passive: true,
+        capture: true,
+        signal,
+      });
+      for (const el of this.collectChatgptThreadScrollers()) {
+        targets.add(el);
+      }
+      const vv = window.visualViewport;
+      if (vv) {
+        vv.addEventListener('scroll', scheduleViewportSync, { passive: true, signal });
+        vv.addEventListener('resize', scheduleViewportSync, { passive: true, signal });
+      }
+    }
+
     for (const target of targets) {
       target.addEventListener('scroll', scheduleViewportSync, scrollOpts);
     }
+  }
+
+  /** ChatGPT often scrolls a deep flex child under `<main>`, not the element `getScrollParent` alone hits. */
+  private collectChatgptThreadScrollers(max = 64): HTMLElement[] {
+    const main = document.querySelector('main');
+    if (!main) return [];
+    const out: HTMLElement[] = [];
+    const visit = (node: HTMLElement): void => {
+      if (out.length >= max) return;
+      for (const child of node.children) {
+        if (!(child instanceof HTMLElement)) continue;
+        if (out.length >= max) return;
+        const oy = window.getComputedStyle(child).overflowY;
+        if (
+          (oy === 'auto' || oy === 'scroll' || oy === 'overlay') &&
+          child.scrollHeight > child.clientHeight + 10
+        ) {
+          out.push(child);
+        }
+        visit(child);
+      }
+    };
+    visit(main);
+    return out;
   }
 
   private stripeIntersectPx(

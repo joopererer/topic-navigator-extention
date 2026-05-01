@@ -1,4 +1,4 @@
-import { uniqElements } from '../core/domUtils.js';
+import { getScrollParent, uniqElements } from '../core/domUtils.js';
 import type { PlatformAdapter } from '../core/types.js';
 
 /** DOCUMENT_POSITION_FOLLOWING — avoid global `Node` in Vitest/jsdom. */
@@ -66,6 +66,23 @@ export const chatgptAdapter: PlatformAdapter = {
   },
 
   getScrollRoot(doc: Document): HTMLElement | null {
+    /** Thread scroll often lives inside a nested flex child, not on `<main>`. */
+    const seed =
+      (doc.querySelector('[data-turn="user"][data-turn-id]') as HTMLElement | null) ??
+      (doc.querySelector('[data-turn="user"]') as HTMLElement | null) ??
+      (doc.querySelector('[data-message-author-role="user"]') as HTMLElement | null) ??
+      (doc.querySelector('main article') as HTMLElement | null);
+
+    const fromBubble = seed ? getScrollParent(seed) : null;
+    if (
+      fromBubble &&
+      fromBubble !== document.documentElement &&
+      fromBubble !== document.body &&
+      fromBubble.scrollHeight > fromBubble.clientHeight + 8
+    ) {
+      return fromBubble;
+    }
+
     const main = doc.querySelector('main') as HTMLElement | null;
     if (main && main.scrollHeight > main.clientHeight + 40) return main;
     return (doc.scrollingElement as HTMLElement) ?? null;
