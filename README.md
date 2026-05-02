@@ -111,10 +111,3 @@ npm run test    # Vitest
 ## License
 
 This project is licensed under the **[MIT License](./LICENSE)**.
-
-**Why MIT (vs Apache-2.0)**
-
-- **MIT**: Short and widely used; typically you keep the copyright and license notice—fine for small extensions and easy for downstream users.
-- **Apache-2.0**: Also permissive, with an explicit **patent grant** and longer text—often chosen for larger or corporate projects with patent policies.
-
-To switch to Apache-2.0, replace `LICENSE` and update this section.
