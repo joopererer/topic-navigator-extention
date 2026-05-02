@@ -55,9 +55,20 @@ Other Onyx deployments use **custom patterns** on the options page. The extensio
    npm install
    npm run build
    ```
-2. Open Chrome (or another Chromium browser) → `chrome://extensions`.
-3. Enable **Developer mode** → **Load unpacked** → select the **`dist`** folder inside this repo (not the repo root).
-4. Open a supported chat page and refresh; the rail should appear on the right.
+2. **Chromium (Chrome, Edge, Brave, …)** → `chrome://extensions` or `edge://extensions` → enable **Developer mode** → **Load unpacked** → select the **`dist`** folder (not the repo root).
+3. Open a supported chat page and refresh; the rail should appear on the right.
+
+### Firefox
+
+Firefox rejects MV3 `background.service_worker` in many setups; use a separate output folder:
+
+```bash
+npm run build:firefox
+```
+
+Then **Firefox** → `about:debugging` → **This Firefox** → **Load Temporary Add-on…** → choose **`dist-firefox/manifest.json`**.
+
+Each `npm run build:firefox` runs a full build, then copies `dist/` → `dist-firefox/` and patches the manifest (`background.scripts` + `browser_specific_settings.gecko`). Chat font scaling uses CSS `zoom`; if it behaves oddly on Firefox, report an issue—`transform`/`font-size` fallbacks can be added per site.
 
 For development you can watch the content bundle:
 

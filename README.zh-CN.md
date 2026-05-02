@@ -55,9 +55,20 @@
    npm install
    npm run build
    ```
-2. 打开 Chrome（或基于 Chromium 的浏览器），进入 `chrome://extensions`。
-3. 开启「开发者模式」，点击「加载已解压的扩展程序」，选择仓库中的 **`dist`** 目录（不是项目根目录）。
-4. 打开上述任一支持的聊天页面，刷新后即可看到右侧导航 UI。
+2. **Chromium 系（Chrome、Edge、Brave 等）**：进入 `chrome://extensions` 或 `edge://extensions` → 开启「开发者模式」→「加载已解压的扩展程序」→ 选择仓库里的 **`dist`** 目录（不是仓库根目录）。
+3. 打开上述任一支持的聊天页面，刷新后即可看到右侧导航 UI。
+
+### Firefox
+
+Firefox 对 MV3 的 `background.service_worker` 支持方式不同，需使用单独构建目录：
+
+```bash
+npm run build:firefox
+```
+
+在 Firefox 打开 **`about:debugging`** → **此 Firefox** → **临时载入附加组件…** → 选择 **`dist-firefox/manifest.json`**。
+
+`build:firefox` 会先执行完整 `build`，再把 `dist/` 复制到 **`dist-firefox/`** 并改写 manifest（使用 `background.scripts` 及 `browser_specific_settings.gecko`）。对话区字体缩放使用 CSS `zoom`，若在 Firefox 上表现异常可提 issue，再考虑按站点改用 `transform` / `font-size`。
 
 开发时可单独监听内容脚本构建：
 
