@@ -1,4 +1,6 @@
 node_modules/
 dist/
 dist-firefox/
+topic-navigator-chromium-v*.zip
+topic-navigator-firefox-v*.zip
 *.log

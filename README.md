@@ -78,6 +78,19 @@ npm run dev
 
 Run a full `npm run build` when you need updated popup, background, or options bundles.
 
+### GitHub Release zips (Chrome / Edge / Firefox)
+
+- **CI**: Push a **version tag** matching `v*` (e.g. `v1.0.0`). The [Release workflow](.github/workflows/release.yml) runs `npm run build:firefox`, then uploads:
+  - `topic-navigator-chromium-<tag>.zip` — unpack; use the **folder** with **Load unpacked** in Chrome or Edge.
+  - `topic-navigator-firefox-<tag>.zip` — same for Firefox **Temporary Add-on** → pick `manifest.json` inside the extracted folder (or keep as a single folder if you extract to a fixed path).
+- **Local zips** (same layout as CI):
+
+  ```bash
+  npm run package:release
+  ```
+
+  Creates `topic-navigator-chromium-v<manifest-version>.zip` and `topic-navigator-firefox-v<manifest-version>.zip` in the repo root (gitignored). Bump `version` in `manifest.json` before tagging a release.
+
 ---
 
 ## Usage

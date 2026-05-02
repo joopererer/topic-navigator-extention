@@ -78,6 +78,19 @@ npm run dev
 
 随后仍可对 `dist` 重新执行完整 `npm run build` 以生成弹窗、后台与选项页。
 
+### GitHub Release 安装包（Chrome / Edge / Firefox）
+
+- **CI**：推送符合 `v*` 的版本标签（例如 `v1.0.0`），[Release 工作流](.github/workflows/release.yml) 会执行 `npm run build:firefox` 并上传：
+  - `topic-navigator-chromium-<tag>.zip`：解压后，在 Chrome / Edge 扩展页用 **加载已解压的扩展程序** 选中该文件夹。
+  - `topic-navigator-firefox-<tag>.zip`：解压后，在 Firefox **临时载入附加组件** 中选解压目录里的 `manifest.json`。
+- **本地打同样结构的 zip**：
+
+  ```bash
+  npm run package:release
+  ```
+
+  会在仓库根目录生成 `topic-navigator-chromium-v<manifest版本>.zip` 与 `topic-navigator-firefox-v<manifest版本>.zip`（已加入 `.gitignore`）。发版前记得在 `manifest.json` 里更新 `version`，且标签与版本一致。
+
 ---
 
 ## 使用说明
