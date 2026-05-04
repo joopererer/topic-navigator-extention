@@ -12,6 +12,7 @@ function isLikelyChatPath(loc: string): boolean {
 
 function findOnyxRoots(doc: Document): HTMLElement[] {
   const selectors = [
+    '[id="onyx-human-message"]',
     '.chat-message.user',
     '.chat-message[data-role="user"]',
     'div.chat-message.user',
@@ -52,6 +53,8 @@ export function createOnyxAdapter(extraHosts: Set<string>): PlatformAdapter {
 
     matchesLocation(url: URL): boolean {
       if (!hostnameAllowed(url.hostname, extraHosts)) return false;
+      // For custom hosts explicitly added by the user, skip the path check.
+      if (extraHosts.has(url.hostname)) return true;
       return isLikelyChatPath(url.pathname + url.hash);
     },
 
