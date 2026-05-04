@@ -78,6 +78,8 @@ npm run dev
 
 Run a full `npm run build` when you need updated popup, background, or options bundles.
 
+Toolbar / extension icons come from **`icons/source.png`**; `npm run build` regenerates **`icons/icon{16,32,48,128}.png`** (via `sharp`) before packaging. Replace `source.png`, then rebuild.
+
 ### GitHub Release zips (Chrome / Edge / Firefox)
 
 - **CI**: Push a **version tag** matching `v*` (e.g. `v1.0.0`). The [Release workflow](.github/workflows/release.yml) runs `npm run build:firefox`, then uploads:

@@ -78,6 +78,8 @@ npm run dev
 
 随后仍可对 `dist` 重新执行完整 `npm run build` 以生成弹窗、后台与选项页。
 
+工具栏图标以 **`icons/source.png`** 为母图，`npm run build` 会先通过 `sharp` 生成 **`icons/icon16/32/48/128.png`**。更换图标只需替换 `source.png` 后重新构建。
+
 ### GitHub Release 安装包（Chrome / Edge / Firefox）
 
 - **CI**：推送符合 `v*` 的版本标签（例如 `v1.0.0`），[Release 工作流](.github/workflows/release.yml) 会执行 `npm run build:firefox` 并上传：

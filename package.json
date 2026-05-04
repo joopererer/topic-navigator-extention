@@ -6,6 +6,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite build --config vite.config.content.ts --watch",
+    "prebuild": "node scripts/generate-icons.mjs",
     "build": "tsc --noEmit && vite build --config vite.config.content.ts && vite build --config vite.config.background.ts && vite build --config vite.config.popup.ts && vite build --config vite.config.options.ts",
     "build:firefox": "npm run build && node scripts/build-firefox.mjs",
     "package:release": "npm run build:firefox && node scripts/package-release.mjs",
@@ -17,6 +18,7 @@
     "@types/node": "^22.10.0",
     "archiver": "^7.0.1",
     "jsdom": "^25.0.1",
+    "sharp": "^0.34.5",
     "typescript": "^5.7.2",
     "vite": "^6.0.3",
     "vitest": "^2.1.8"
