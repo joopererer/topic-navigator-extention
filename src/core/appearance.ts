@@ -90,6 +90,11 @@ function normalizeHex(hex: unknown, fb: string): string {
   return fb;
 }
 
+/** For popup hex fields: normalize `#rgb` / `#rrggbb`; invalid strings fall back. */
+export function normalizeAppearanceHex(hex: string, fallback: string): string {
+  return normalizeHex(hex, fallback);
+}
+
 /** Parse `#rrggbb` → `{ r,g,b }` or null */
 export function hexToRgb(hex: string): { r: number; g: number; b: number } | null {
   const h = normalizeHex(hex, '').slice(1);

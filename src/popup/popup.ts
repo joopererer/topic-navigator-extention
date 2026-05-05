@@ -2,6 +2,7 @@ import type { TopicNavAppearanceStored } from '../core/appearance.js';
 import {
   STORAGE_TOPIC_NAV_APPEARANCE,
   defaultTopicNavAppearance,
+  normalizeAppearanceHex,
   parseTopicNavAppearance,
 } from '../core/appearance.js';
 import {
@@ -72,8 +73,93 @@ const slot1Label = getEl('_slot1Label');
 const slot2Label = getEl('_slot2Label');
 const slot3Label = getEl('_slot3Label');
 
+/** Firefox closes extension popups when native `<input type="color">` steals focus — use hex + swatches instead. */
+const IS_FIREFOX_POPUP = navigator.userAgent.includes('Firefox');
+/** Hidden color inputs stay the source of truth for `readFromForm`; hex fields mirror them in Firefox. */
+const firefoxHexByColor = new WeakMap<HTMLInputElement, HTMLInputElement>();
+
+const FIREFOX_PRESET_HEX = [
+  '#e8eaef',
+  '#1a1a1e',
+  '#d1d5db',
+  '#374151',
+  '#2563eb',
+  '#1d4ed8',
+  '#ffffff',
+  '#000000',
+  '#ef4444',
+  '#22c55e',
+  '#a855f7',
+  '#0ea5e9',
+] as const;
+
 function ux(lang: UiLangCode, key: UiStringKey, vars?: Record<string, string | number>): string {
   return t(lang, key, vars);
+}
+
+function installFirefoxColorUi(colorPickers: HTMLInputElement[]): void {
+  if (!IS_FIREFOX_POPUP) return;
+  document.documentElement.classList.add('tn-firefox-popup');
+
+  for (const colorEl of colorPickers) {
+    colorEl.style.display = 'none';
+    colorEl.tabIndex = -1;
+    colorEl.setAttribute('aria-hidden', 'true');
+
+    const parent = colorEl.parentElement;
+    if (!parent) continue;
+
+    const column = document.createElement('div');
+    column.style.cssText =
+      'display:flex;flex-direction:column;gap:5px;flex:0 0 auto;min-width:0;align-self:center';
+
+    const hexInput = document.createElement('input');
+    hexInput.type = 'text';
+    hexInput.dataset.tnHexFor = colorEl.id;
+    hexInput.autocomplete = 'off';
+    hexInput.spellcheck = false;
+    hexInput.maxLength = 7;
+    hexInput.style.cssText =
+      'width:76px;box-sizing:border-box;padding:4px 7px;border:1px solid #ccc;border-radius:6px;font:inherit;font-variant-numeric:tabular-nums';
+
+    const presetRow = document.createElement('span');
+    presetRow.style.cssText = 'display:flex;flex-wrap:wrap;gap:3px;max-width:132px';
+
+    for (const h of FIREFOX_PRESET_HEX) {
+      const swatch = document.createElement('button');
+      swatch.type = 'button';
+      swatch.title = h;
+      swatch.setAttribute('aria-label', h);
+      const light = h.toLowerCase() === '#ffffff';
+      swatch.style.cssText = [
+        'width:17px;height:17px;padding:0;margin:0;border-radius:4px',
+        `border:1px solid ${light ? '#bbb' : 'rgba(0,0,0,.28)'}`,
+        `background:${h}`,
+        'cursor:pointer;flex-shrink:0',
+      ].join(';');
+      swatch.addEventListener('click', () => {
+        colorEl.value = h;
+        hexInput.value = normalizeAppearanceHex(h, colorEl.value);
+        onAppearanceFieldInput();
+      });
+      presetRow.appendChild(swatch);
+    }
+
+    const applyHexField = (): void => {
+      const fb = colorEl.value || '#000000';
+      const next = normalizeAppearanceHex(hexInput.value, fb);
+      colorEl.value = next;
+      hexInput.value = next;
+      onAppearanceFieldInput();
+    };
+    hexInput.addEventListener('change', applyHexField);
+    hexInput.addEventListener('blur', applyHexField);
+
+    column.appendChild(hexInput);
+    column.appendChild(presetRow);
+    parent.insertBefore(column, colorEl);
+    firefoxHexByColor.set(colorEl, hexInput);
+  }
 }
 
 function prefFromSelect(): UiLangPref {
@@ -142,6 +228,12 @@ function applyChromeStrings(lang: UiLangCode): void {
   saveBtn.textContent = ux(lang, 'btnSave');
   resetBtn.textContent = ux(lang, 'btnReset');
   openOpts.textContent = ux(lang, 'btnOptions');
+
+  if (IS_FIREFOX_POPUP) {
+    for (const el of document.querySelectorAll<HTMLInputElement>('[data-tn-hex-for]')) {
+      el.title = ux(lang, 'firefoxHexColorTitle');
+    }
+  }
 }
 
 function hydrate(a: TopicNavAppearanceStored): void {
@@ -162,9 +254,11 @@ function hydrate(a: TopicNavAppearanceStored): void {
   dotActiveBorderW.value = String(Math.round(a.dotActiveBorderWidthPx * 10));
   dotStyle.value = a.dotStyle;
   applyChromeStrings(langForChrome());
+  syncFirefoxHexInputsFromColors();
 }
 
 function readFromForm(): TopicNavAppearanceStored {
+  commitFirefoxHexFields();
   return (
     parseTopicNavAppearance({
       v: 2,
@@ -224,6 +318,28 @@ const appearanceColorPickers: HTMLInputElement[] = [
   dotActiveBg,
   dotActiveBorder,
 ];
+
+function commitFirefoxHexFields(): void {
+  if (!IS_FIREFOX_POPUP) return;
+  for (const colorEl of appearanceColorPickers) {
+    const hexEl = firefoxHexByColor.get(colorEl);
+    if (!hexEl) continue;
+    const fb = colorEl.value || '#000000';
+    const next = normalizeAppearanceHex(hexEl.value, fb);
+    colorEl.value = next;
+    hexEl.value = next;
+  }
+}
+
+function syncFirefoxHexInputsFromColors(): void {
+  if (!IS_FIREFOX_POPUP) return;
+  for (const colorEl of appearanceColorPickers) {
+    const hexEl = firefoxHexByColor.get(colorEl);
+    if (hexEl) hexEl.value = colorEl.value;
+  }
+}
+
+installFirefoxColorUi(appearanceColorPickers);
 
 appearanceSliders.forEach((el) => el.addEventListener('input', onAppearanceFieldInput));
 appearanceColorPickers.forEach((el) => el.addEventListener('input', onAppearanceFieldInput));

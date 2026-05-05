@@ -39,6 +39,11 @@ export const UI = {
     zh: '时间轴胶囊与节点样式会同步到已打开的会话页。',
     fr: 'La capsule et les pastilles sont appliquées aux onglets de discussion ouverts.',
   },
+  firefoxHexColorTitle: {
+    en: 'Color as #rrggbb (Firefox: type or pick a swatch)',
+    zh: '十六进制色值 #rrggbb（Firefox：输入或点色块）',
+    fr: 'Couleur en #rrggbb (Firefox : saisie ou nuancier)',
+  },
   localeLabel: {
     en: 'Language',
     zh: '界面语言',
