@@ -33,11 +33,11 @@ manifest.browser_specific_settings = {
       required: ['none'],
     },
   },
+  // Android WebExtension schema does not recognize data_collection_permissions here
+  // (manifest warning: unexpected property under gecko_android). Desktop gecko above
+  // keeps AMO-required data_collection_permissions.
   gecko_android: {
     strict_min_version: '128.0',
-    data_collection_permissions: {
-      required: ['none'],
-    },
   },
 };
 
