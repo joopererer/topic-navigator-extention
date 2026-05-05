@@ -23,10 +23,21 @@ manifest.background = {
   scripts: ['background.js'],
 };
 
+// AMO: data_collection_permissions required for new listings (Nov 2025+).
+// optional_host_permissions needs Firefox 128+; raise floor so addons-linter matches manifest.
 manifest.browser_specific_settings = {
   gecko: {
     id: 'topic-navigator@extension.local',
-    strict_min_version: '115.0',
+    strict_min_version: '128.0',
+    data_collection_permissions: {
+      required: ['none'],
+    },
+  },
+  gecko_android: {
+    strict_min_version: '128.0',
+    data_collection_permissions: {
+      required: ['none'],
+    },
   },
 };
 

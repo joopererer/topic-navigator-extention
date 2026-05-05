@@ -30,11 +30,6 @@ const HOST_STYLE_ID = 'topic-navigator-host-styles';
 const USER_APPEARANCE_STYLE_ID = 'topic-navigator-appearance-styles';
 const CHAT_FONT_STYLE_ID = 'topic-nav-chat-font';
 
-/** Inline HTML attribute escapes for localized search field */
-function escapeAttr(s: string): string {
-  return s.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
-}
-
 /** Minimum spacing between dot centers — scrollable rail grows when exceeded. */
 const MIN_DOT_SPACING_PX = 15;
 const STAGE_VERTICAL_PAD_PX = 10;
@@ -1175,19 +1170,25 @@ export class TopicNavigatorCore {
     sheet.setAttribute('aria-modal', 'true');
     sheet.setAttribute('aria-label', this.ux('outlineDialogAria'));
 
-    sheet.innerHTML = `
-      <div class="topic-nav-panel-head">
-        <input type="search" class="topic-nav-search" placeholder="${escapeAttr(this.ux('searchTurnsPlaceholder'))}"
-          autocomplete="off" spellcheck="false" aria-label="${escapeAttr(this.ux('searchTurnsAria'))}"/>
-      </div>
-      <div class="topic-nav-panel-body topic-nav-summary-list"></div>
-    `;
+    const panelHead = document.createElement('div');
+    panelHead.className = 'topic-nav-panel-head';
+    const query = document.createElement('input');
+    query.type = 'search';
+    query.className = 'topic-nav-search';
+    query.placeholder = this.ux('searchTurnsPlaceholder');
+    query.autocomplete = 'off';
+    query.spellcheck = false;
+    query.setAttribute('aria-label', this.ux('searchTurnsAria'));
+    panelHead.appendChild(query);
+
+    const list = document.createElement('div');
+    list.className = 'topic-nav-panel-body topic-nav-summary-list';
+    sheet.appendChild(panelHead);
+    sheet.appendChild(list);
     overlay.appendChild(backdrop);
     overlay.appendChild(sheet);
     this.overlayEl = overlay;
 
-    const list = sheet.querySelector('.topic-nav-summary-list') as HTMLElement;
-    const query = sheet.querySelector('.topic-nav-search') as HTMLInputElement;
     this.panelList = list;
     this.searchInput = query;
     query.addEventListener('input', () => this.rebuildPanelRows());
@@ -1207,9 +1208,20 @@ export class TopicNavigatorCore {
       'aria-label',
       this.isPanelOpen ? this.ux('fabCloseList') : this.ux('fabOpenList'),
     );
-    fab.innerHTML =
-      `<svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" viewBox="0 0 24 24" aria-hidden="true">
-        <path d="M8 6h13M8 12h13M8 18h13M3 6h1M3 12h1M3 18h1"/></svg>`;
+    const svgNs = 'http://www.w3.org/2000/svg';
+    const svg = document.createElementNS(svgNs, 'svg');
+    svg.setAttribute('width', '17');
+    svg.setAttribute('height', '17');
+    svg.setAttribute('fill', 'none');
+    svg.setAttribute('stroke', 'currentColor');
+    svg.setAttribute('stroke-width', '2');
+    svg.setAttribute('stroke-linecap', 'round');
+    svg.setAttribute('viewBox', '0 0 24 24');
+    svg.setAttribute('aria-hidden', 'true');
+    const path = document.createElementNS(svgNs, 'path');
+    path.setAttribute('d', 'M8 6h13M8 12h13M8 18h13M3 6h1M3 12h1M3 18h1');
+    svg.appendChild(path);
+    fab.appendChild(svg);
     fab.addEventListener('click', (e) => {
       e.stopPropagation();
       if (this.isPanelOpen) this.closeOutlinePanel();
