@@ -44,7 +44,7 @@ Content scripts run where `manifest.json` matches:
 | Claude | `claude.ai` |
 | Onyx (cloud) | `cloud.onyx.app` |
 
-Other Onyx deployments use **custom patterns** on the options page. The extension declares `optional_host_permissions` (`*://*/*`) so extra hosts are granted on demand.
+Other Onyx deployments use **custom patterns** on the options page. The extension declares `optional_host_permissions` (`https://*/*`, plus `http://localhost/*` and `http://127.0.0.1/*` only for local HTTP dev) so extra hosts are granted on demand.
 
 ---
 
@@ -105,6 +105,25 @@ Toolbar / extension icons come from **`icons/source.png`**; `npm run build` rege
 ---
 
 ## Permissions
+
+### Data stored
+
+This extension stores only:
+
+- custom Onyx host match patterns
+- UI language preference
+- appearance settings (and optional saved color preset slots, if you enable that UI)
+- chat font scale
+
+Preferences are kept in **`chrome.storage.sync`** (Chromium/Firefox WebExtension storage labelled “sync”), so they may sync with your browser profile when you are signed in. **No conversation content is intentionally uploaded to external servers.**
+
+### Privacy
+
+- No analytics
+- No remote telemetry
+- No external API calls from this extension codebase
+- Preferences only stored in browser extension storage
+- No conversation data intentionally transmitted off-device
 
 | Permission | Why |
 |------------|-----|
