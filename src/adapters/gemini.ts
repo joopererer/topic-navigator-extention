@@ -1,4 +1,4 @@
-import { getScrollParent, uniqElements } from '../core/domUtils.js';
+import { getLargestVerticalScrollAncestor, getScrollParent, uniqElements } from '../core/domUtils.js';
 import type { PlatformAdapter } from '../core/types.js';
 
 /** Gemini / AI Studio conversation paths (SPA). */
@@ -67,13 +67,16 @@ export const geminiAdapter: PlatformAdapter = {
   },
 
   getScrollRoot(doc: Document): HTMLElement | null {
-    const probe = geminiFindTurnRoots(doc)[0];
-    const fromMes = probe ? getScrollParent(probe) : null;
-    if (fromMes) return fromMes;
+    const roots = geminiFindTurnRoots(doc);
+    const probe = roots[0];
+    const fromChain = probe ? getLargestVerticalScrollAncestor(probe) : null;
+    if (fromChain) return fromChain;
+
     const main = doc.querySelector(
       'main.chat-main, main[class*="conversation"], main',
     ) as HTMLElement | null;
-    return main ?? ((doc.scrollingElement as HTMLElement) ?? doc.body);
+    if (main && main.scrollHeight > main.clientHeight + 40) return main;
+    return (doc.scrollingElement as HTMLElement) ?? null;
   },
 
   getObserveRoot(doc: Document): Element | null {

@@ -14,7 +14,7 @@ import {
   STORAGE_CHAT_FONT_SCALE,
 } from './chatFontScale.js';
 import { resolveChatFontScopeSelector } from './chatFontScope.js';
-import { extractTurnPreview, getScrollParent } from './domUtils.js';
+import { extractTurnPreview, getLargestVerticalScrollAncestor, getScrollParent } from './domUtils.js';
 import {
   STORAGE_TOPIC_NAV_UI,
   defaultUiPrefs,
@@ -672,6 +672,7 @@ export class TopicNavigatorCore {
 
     const scrollRoot =
       this.adapter.getScrollRoot(document) ??
+      (this.roots[0] ? getLargestVerticalScrollAncestor(this.roots[0]) : null) ??
       (this.roots[0] ? getScrollParent(this.roots[0]) : null) ??
       (document.scrollingElement as HTMLElement);
 
@@ -1372,6 +1373,7 @@ export class TopicNavigatorCore {
     const behavior: ScrollBehavior = 'smooth';
     const scrollEl =
       this.adapter.getScrollRoot(document) ??
+      getLargestVerticalScrollAncestor(el) ??
       getScrollParent(el) ??
       (document.scrollingElement as HTMLElement | null);
     const cue = this.messageContentCue(el);

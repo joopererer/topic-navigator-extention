@@ -1,4 +1,4 @@
-import { getScrollParent, uniqElements } from '../core/domUtils.js';
+import { getLargestVerticalScrollAncestor, getScrollParent, uniqElements } from '../core/domUtils.js';
 import type { PlatformAdapter } from '../core/types.js';
 
 function findClaudeRoots(doc: Document): HTMLElement[] {
@@ -73,13 +73,14 @@ export const claudeAdapter: PlatformAdapter = {
   getScrollRoot(doc: Document): HTMLElement | null {
     const r = findClaudeRoots(doc)[0];
     if (r) {
-      const s = getScrollParent(r);
+      const s = getLargestVerticalScrollAncestor(r);
       if (s) return s;
     }
     const m = doc.querySelector(
       'main[class*="chat"], div[class*="ChatScroll"], [class*="ChatScrollContainer"]',
-    );
-    return (m as HTMLElement) ?? ((doc.scrollingElement as HTMLElement) ?? null);
+    ) as HTMLElement | null;
+    if (m && m.scrollHeight > m.clientHeight + 40) return m;
+    return (doc.scrollingElement as HTMLElement) ?? null;
   },
 
   getObserveRoot(doc: Document): Element | null {

@@ -16,6 +16,38 @@ export function getScrollParent(el: HTMLElement | null): HTMLElement | null {
   return (document.scrollingElement as HTMLElement) ?? document.documentElement;
 }
 
+/**
+ * Prefer the scrollable ancestor with the most vertical overflow (scrollHeight − clientHeight)
+ * walking from `seed` toward the document root. Safer than `getScrollParent` on Gemini / Claude /
+ * Chromium, where nested `overflow:auto` regions can confuse the nearest-scroller heuristic.
+ * Skips `document.body` so callers can fall back to `scrollingElement` / `window` scroll.
+ */
+export function getLargestVerticalScrollAncestor(seed: HTMLElement | null): HTMLElement | null {
+  if (!seed) return null;
+  let best: HTMLElement | null = null;
+  let bestOverflow = -1;
+  for (
+    let node: HTMLElement | null = seed;
+    node && node !== document.documentElement;
+    node = node.parentElement
+  ) {
+    if (node === document.body) continue;
+    const style = window.getComputedStyle(node);
+    const oy = style.overflowY;
+    if (
+      (oy === 'auto' || oy === 'scroll' || oy === 'overlay') &&
+      node.scrollHeight > node.clientHeight + 8
+    ) {
+      const overflow = node.scrollHeight - node.clientHeight;
+      if (overflow > bestOverflow) {
+        bestOverflow = overflow;
+        best = node;
+      }
+    }
+  }
+  return best;
+}
+
 export function uniqElements(nodes: HTMLElement[]): HTMLElement[] {
   const seen = new Set<HTMLElement>();
   const out: HTMLElement[] = [];
