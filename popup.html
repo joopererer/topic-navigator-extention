@@ -99,15 +99,19 @@
     <main class="tn-main">
       <h1 id="_hTitle" style="margin: 0 0 8px; font-size: 1rem; font-weight: 650">Topic Navigator</h1>
 
-      <label class="tn-lbl" style="margin-bottom: 4px">
+      <div class="tn-lbl" style="margin-bottom: 4px">
         <span id="_lblLocaleHeading" style="font-size: 11px; font-weight: 600; color: #444"></span>
-        <select id="localePref" style="padding: 5px 6px; border-radius: 6px; border: 1px solid #ccc; font: inherit">
+        <select
+          id="localePref"
+          aria-labelledby="_lblLocaleHeading"
+          style="padding: 5px 6px; border-radius: 6px; border: 1px solid #ccc; font: inherit"
+        >
           <option value="auto">Auto</option>
           <option value="en">English</option>
           <option value="zh">中文</option>
           <option value="fr">Français</option>
         </select>
-      </label>
+      </div>
 
       <div class="tn-appearance">
         <!-- Track / capsule -->
@@ -117,24 +121,34 @@
             <button type="button" id="btnResetTrack" class="tn-sec-reset"></button>
           </div>
           <div class="tn-field-grid">
-            <label class="tn-lbl">
+            <div class="tn-lbl">
               <span id="_lblCapW"></span>
-              <input id="shellWidth" type="range" min="12" max="36" step="1" />
-            </label>
-            <label class="tn-lbl">
+              <input id="shellWidth" type="range" min="12" max="36" step="1" aria-labelledby="_lblCapW" />
+            </div>
+            <div class="tn-lbl">
               <span id="_lblTrackBg"></span>
               <span class="tn-row-color">
-                <input id="trackBg" type="color" style="width: 42px; height: 28px; padding: 0; border: none; cursor: pointer" />
-                <input id="trackBgOp" type="range" min="20" max="100" />
+                <input
+                  id="trackBg"
+                  type="color"
+                  aria-labelledby="_lblTrackBg"
+                  style="width: 42px; height: 28px; padding: 0; border: none; cursor: pointer"
+                />
+                <input id="trackBgOp" type="range" min="20" max="100" aria-labelledby="_lblTrackBg" />
               </span>
-            </label>
-            <label class="tn-lbl">
+            </div>
+            <div class="tn-lbl">
               <span id="_lblTrackBd"></span>
               <span class="tn-row-color">
-                <input id="trackBorder" type="color" style="width: 42px; height: 28px; padding: 0; border: none; cursor: pointer" />
-                <input id="trackBorderOp" type="range" min="4" max="100" />
+                <input
+                  id="trackBorder"
+                  type="color"
+                  aria-labelledby="_lblTrackBd"
+                  style="width: 42px; height: 28px; padding: 0; border: none; cursor: pointer"
+                />
+                <input id="trackBorderOp" type="range" min="4" max="100" aria-labelledby="_lblTrackBd" />
               </span>
-            </label>
+            </div>
           </div>
         </section>
 
@@ -142,7 +156,7 @@
         <section class="tn-sec tn-sec--shape">
           <div class="tn-sec-head tn-sec-head--shape tn-shape-row">
             <span id="_lblDotShape" class="tn-sec-label" style="flex-shrink: 0"></span>
-            <select id="dotStyle">
+            <select id="dotStyle" aria-labelledby="_lblDotShape">
               <option value="solid" data-key="dotStyleSolid">Solid</option>
               <option value="hollow" data-key="dotStyleHollow">Hollow</option>
               <option value="outline" data-key="dotStyleOutline">Outline</option>
@@ -157,24 +171,34 @@
             <button type="button" id="btnResetInactive" class="tn-sec-reset"></button>
           </div>
           <div class="tn-field-grid">
-            <label class="tn-lbl">
+            <div class="tn-lbl">
               <span id="_lblDotIdleBg"></span>
               <span class="tn-row-color">
-                <input id="dotIdleBg" type="color" style="flex: 0 0 42px; height: 28px; padding: 0; border: none; cursor: pointer" />
-                <input id="dotIdleBgOp" type="range" min="0" max="100" />
+                <input
+                  id="dotIdleBg"
+                  type="color"
+                  aria-labelledby="_lblDotIdleBg"
+                  style="flex: 0 0 42px; height: 28px; padding: 0; border: none; cursor: pointer"
+                />
+                <input id="dotIdleBgOp" type="range" min="0" max="100" aria-labelledby="_lblDotIdleBg" />
               </span>
-            </label>
-            <label class="tn-lbl">
+            </div>
+            <div class="tn-lbl">
               <span id="_lblDotIdleBd"></span>
               <span class="tn-row-color">
-                <input id="dotIdleBorder" type="color" style="width: 42px; height: 28px; padding: 0; border: none; cursor: pointer" />
-                <input id="dotIdleBorderOp" type="range" min="12" max="100" />
+                <input
+                  id="dotIdleBorder"
+                  type="color"
+                  aria-labelledby="_lblDotIdleBd"
+                  style="width: 42px; height: 28px; padding: 0; border: none; cursor: pointer"
+                />
+                <input id="dotIdleBorderOp" type="range" min="12" max="100" aria-labelledby="_lblDotIdleBd" />
               </span>
-            </label>
-            <label class="tn-lbl">
+            </div>
+            <div class="tn-lbl">
               <span id="_lblDotIdleBdW"></span>
-              <input id="dotIdleBorderW" type="range" min="10" max="80" step="1" />
-            </label>
+              <input id="dotIdleBorderW" type="range" min="10" max="80" step="1" aria-labelledby="_lblDotIdleBdW" />
+            </div>
           </div>
         </section>
 
@@ -185,24 +209,34 @@
             <button type="button" id="btnResetActive" class="tn-sec-reset"></button>
           </div>
           <div class="tn-field-grid">
-            <label class="tn-lbl">
+            <div class="tn-lbl">
               <span id="_lblDotActiveBg"></span>
               <span class="tn-row-color">
-                <input id="dotActiveBg" type="color" style="flex: 0 0 42px; height: 28px; padding: 0; border: none; cursor: pointer" />
-                <input id="dotActiveBgOp" type="range" min="0" max="100" />
+                <input
+                  id="dotActiveBg"
+                  type="color"
+                  aria-labelledby="_lblDotActiveBg"
+                  style="flex: 0 0 42px; height: 28px; padding: 0; border: none; cursor: pointer"
+                />
+                <input id="dotActiveBgOp" type="range" min="0" max="100" aria-labelledby="_lblDotActiveBg" />
               </span>
-            </label>
-            <label class="tn-lbl">
+            </div>
+            <div class="tn-lbl">
               <span id="_lblDotActiveBd"></span>
               <span class="tn-row-color">
-                <input id="dotActiveBorder" type="color" style="width: 42px; height: 28px; padding: 0; border: none; cursor: pointer" />
-                <input id="dotActiveBorderOp" type="range" min="12" max="100" />
+                <input
+                  id="dotActiveBorder"
+                  type="color"
+                  aria-labelledby="_lblDotActiveBd"
+                  style="width: 42px; height: 28px; padding: 0; border: none; cursor: pointer"
+                />
+                <input id="dotActiveBorderOp" type="range" min="12" max="100" aria-labelledby="_lblDotActiveBd" />
               </span>
-            </label>
-            <label class="tn-lbl">
+            </div>
+            <div class="tn-lbl">
               <span id="_lblDotActiveBdW"></span>
-              <input id="dotActiveBorderW" type="range" min="10" max="100" step="1" />
-            </label>
+              <input id="dotActiveBorderW" type="range" min="10" max="100" step="1" aria-labelledby="_lblDotActiveBdW" />
+            </div>
           </div>
         </section>
       </div>
