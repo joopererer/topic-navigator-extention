@@ -6,6 +6,18 @@
   <strong>简体中文</strong>
 </p>
 
+<p align="center">
+  <a href="https://github.com/joopererer/topic-navigator-extention/actions/workflows/ci.yml"><img src="https://github.com/joopererer/topic-navigator-extention/actions/workflows/ci.yml/badge.svg?branch=master" alt="CI" /></a>
+  &nbsp;
+  <a href="https://github.com/joopererer/topic-navigator-extention/releases"><img src="https://img.shields.io/github/v/release/joopererer/topic-navigator-extention?label=release" alt="Release" /></a>
+  &nbsp;
+  <a href="./LICENSE"><img src="https://img.shields.io/github/license/joopererer/topic-navigator-extention" alt="License" /></a>
+  &nbsp;
+  <a href="https://addons.mozilla.org/firefox/addon/topic-navigator/"><img src="https://img.shields.io/amo/v/topic-navigator?label=firefox%E5%BA%93" alt="Firefox 附加组件版本" /></a>
+  &nbsp;
+  <a href="https://developer.chrome.com/docs/extensions/mv3/intro/"><img src="https://img.shields.io/badge/Manifest-V3-blue" alt="MV3" /></a>
+</p>
+
 在 ChatGPT、Gemini、Claude、Onyx（含自建）等对话页面上，提供**按轮次导航**的侧边时间轴：快速跳转用户/助手消息、查看大纲列表并搜索轮次，并可通过扩展弹窗自定义胶囊轨道与时间点的配色。
 
 ---
@@ -47,6 +59,10 @@
 其他 Onyx 实例通过 **选项页** 添加自定义匹配模式；扩展使用 `optional_host_permissions`（`https://*/*`，以及仅本地 HTTP 开发用的 `http://localhost/*`、`http://127.0.0.1/*`）以便按需授权。
 
 ---
+
+## 从商店安装
+
+- **Firefox**：[Mozilla 附加组件 — Topic Navigator](https://addons.mozilla.org/firefox/addon/topic-navigator/)（也可使用 [中文区域页面](https://addons.mozilla.org/zh-CN/firefox/addon/topic-navigator/)）。
 
 ## 安装（从源码加载）
 
@@ -98,7 +114,7 @@ npm run dev
 ## 使用说明
 
 1. **首次使用**：进入支持的对话页面；若页面结构变更导致无法识别，可能需要等待扩展更新适配。
-2. **调整样式**：点击扩展图标 → 修改滑块与颜色 → 点击 **保存并应用**；已打开的标签页会通过存储变更自动应用新样式。
+2. **调整样式**：点击扩展图标 → 修改滑块与颜色；外观会在短暂防抖后自动保存（关闭弹窗时也会落盘）；已打开的标签页会通过存储变更自动应用新样式。
 3. **自托管 Onyx**：右键扩展 → **选项**（或弹窗内入口）→ 填写 Onyx 页面的 URL 匹配模式 → 保存并授予权限。
 4. **配色预设槽位（可选功能）**：代码中保留了最多 3 个配色槽位与内置默认的载入/保存逻辑；当前弹窗中该区块默认 **不展示**。若需再次启用，可在 `popup.html` 中将 `#presetSection` 的 `display: none` 改为 `display: grid`（参见文件内注释）。
 
@@ -139,6 +155,8 @@ npm run dev
 npm run build   # TypeScript 检查 + 打包 content / background / popup / options
 npm run test    # Vitest 单元测试
 ```
+
+向 `master` 分支推送或发起 PR 时，[GitHub Actions](https://github.com/joopererer/topic-navigator-extention/actions) 会执行相同的 **build + test**。推送 `v*` 版本标签在打 Release 压缩包之前也会跑测试。
 
 ---
 

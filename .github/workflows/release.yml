@@ -22,6 +22,8 @@ jobs:
 
       - run: npm ci
 
+      - run: npm test
+
       - name: Build dist + dist-firefox
         run: npm run build:firefox
 

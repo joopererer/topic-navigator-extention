@@ -6,6 +6,18 @@
   <a href="./README.zh-CN.md">简体中文</a>
 </p>
 
+<p align="center">
+  <a href="https://github.com/joopererer/topic-navigator-extention/actions/workflows/ci.yml"><img src="https://github.com/joopererer/topic-navigator-extention/actions/workflows/ci.yml/badge.svg?branch=master" alt="CI status" /></a>
+  &nbsp;
+  <a href="https://github.com/joopererer/topic-navigator-extention/releases"><img src="https://img.shields.io/github/v/release/joopererer/topic-navigator-extention?label=release" alt="Latest GitHub release" /></a>
+  &nbsp;
+  <a href="./LICENSE"><img src="https://img.shields.io/github/license/joopererer/topic-navigator-extention" alt="License" /></a>
+  &nbsp;
+  <a href="https://addons.mozilla.org/firefox/addon/topic-navigator/"><img src="https://img.shields.io/amo/v/topic-navigator?label=firefox%20addon" alt="Firefox add-on version" /></a>
+  &nbsp;
+  <a href="https://developer.chrome.com/docs/extensions/mv3/intro/"><img src="https://img.shields.io/badge/Manifest-V3-blue" alt="Manifest V3" /></a>
+</p>
+
 A Chromium extension that adds a **turn-by-turn sidebar timeline** on ChatGPT, Gemini, Claude, Onyx (including self-hosted), and similar chat pages: jump between user/assistant turns, open an outline list with search, and customize the rail and dot colors from the toolbar popup.
 
 ---
@@ -47,6 +59,10 @@ Content scripts run where `manifest.json` matches:
 Other Onyx deployments use **custom patterns** on the options page. The extension declares `optional_host_permissions` (`https://*/*`, plus `http://localhost/*` and `http://127.0.0.1/*` only for local HTTP dev) so extra hosts are granted on demand.
 
 ---
+
+## Install from stores
+
+- **Firefox**: [Topic Navigator on addons.mozilla.org](https://addons.mozilla.org/firefox/addon/topic-navigator/) — install directly in Firefox desktop (and Firefox for Android if your listing targets it).
 
 ## Install (load unpacked)
 
@@ -98,7 +114,7 @@ Toolbar / extension icons come from **`icons/source.png`**; `npm run build` rege
 ## Usage
 
 1. **First run**: Open a supported chat page. If a site changes its DOM, you may need an extension update for selectors to keep working.
-2. **Theming**: Click the extension icon → adjust controls → **Save & apply**; open tabs pick up changes via storage sync.
+2. **Theming**: Click the extension icon → adjust controls; appearance autosaves after a short debounce (and again when you close the popup). Open tabs pick up changes via storage sync.
 3. **Self-hosted Onyx**: Extension menu → **Options** (or use the link in the popup) → enter URL match patterns → save and approve permissions.
 4. **Color presets (optional)**: The code supports three preset slots plus “load default”; the preset block in the popup is **hidden** by default. To show it, change `#presetSection` in `popup.html` from `display: none` to `display: grid` (see comment in that file).
 
@@ -139,6 +155,8 @@ Preferences are kept in **`chrome.storage.sync`** (Chromium/Firefox WebExtension
 npm run build   # TypeScript check + bundle content / background / popup / options
 npm run test    # Vitest
 ```
+
+Push and pull requests to `master` run the same **`build` + `test`** steps via [GitHub Actions](https://github.com/joopererer/topic-navigator-extention/actions). Version tags `v*` also run tests before building Release zips.
 
 ---
 
