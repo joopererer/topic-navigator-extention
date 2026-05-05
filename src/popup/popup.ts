@@ -44,7 +44,9 @@ const dotActiveBorder = getEl('dotActiveBorder') as HTMLInputElement;
 const dotActiveBorderOp = getEl('dotActiveBorderOp') as HTMLInputElement;
 const dotActiveBorderW = getEl('dotActiveBorderW') as HTMLInputElement;
 const dotStyle = getEl('dotStyle') as HTMLSelectElement;
-const saveBtn = getEl('save') as HTMLButtonElement;
+const btnResetTrack = getEl('btnResetTrack') as HTMLButtonElement;
+const btnResetInactive = getEl('btnResetInactive') as HTMLButtonElement;
+const btnResetActive = getEl('btnResetActive') as HTMLButtonElement;
 const resetBtn = getEl('reset') as HTMLButtonElement;
 const openOpts = getEl('openOptions') as HTMLButtonElement;
 const status = getEl('status') as HTMLParagraphElement;
@@ -72,6 +74,90 @@ const lblPresets = getEl('_lblPresets');
 const slot1Label = getEl('_slot1Label');
 const slot2Label = getEl('_slot2Label');
 const slot3Label = getEl('_slot3Label');
+
+const DEBOUNCE_PERSIST_MS = 280;
+let appearancePersistTimer: number | undefined;
+
+function clearAppearanceDebounce(): void {
+  if (appearancePersistTimer !== undefined) {
+    clearTimeout(appearancePersistTimer);
+    appearancePersistTimer = undefined;
+  }
+}
+
+function schedulePersistAppearance(): void {
+  clearAppearanceDebounce();
+  appearancePersistTimer = window.setTimeout(() => {
+    appearancePersistTimer = undefined;
+    void flushPersistAppearance();
+  }, DEBOUNCE_PERSIST_MS);
+}
+
+async function flushPersistAppearance(): Promise<void> {
+  try {
+    status.textContent = '';
+    const next = readFromForm();
+    await chrome.storage.sync.set({
+      [STORAGE_TOPIC_NAV_APPEARANCE]: next,
+    });
+    status.textContent = ux(langForChrome(), 'autoSavedStatus');
+  } catch {
+    status.textContent = ux(langForChrome(), 'autoSaveFailed');
+  }
+}
+
+async function persistAppearanceImmediate(): Promise<void> {
+  clearAppearanceDebounce();
+  try {
+    status.textContent = '';
+    const next = readFromForm();
+    await chrome.storage.sync.set({
+      [STORAGE_TOPIC_NAV_APPEARANCE]: next,
+    });
+    status.textContent = ux(langForChrome(), 'autoSavedStatus');
+  } catch {
+    status.textContent = ux(langForChrome(), 'autoSaveFailed');
+  }
+}
+
+function applySectionDefaults(section: 'track' | 'inactive' | 'active'): TopicNavAppearanceStored {
+  const cur = readFromForm();
+  const d = defaultTopicNavAppearance();
+  if (section === 'track') {
+    return (
+      parseTopicNavAppearance({
+        ...cur,
+        shellWidthPx: d.shellWidthPx,
+        trackBgHex: d.trackBgHex,
+        trackBgOpacityPct: d.trackBgOpacityPct,
+        trackBorderHex: d.trackBorderHex,
+        trackBorderOpacityPct: d.trackBorderOpacityPct,
+      }) ?? d
+    );
+  }
+  if (section === 'inactive') {
+    return (
+      parseTopicNavAppearance({
+        ...cur,
+        dotIdleBgHex: d.dotIdleBgHex,
+        dotIdleBgOpacityPct: d.dotIdleBgOpacityPct,
+        dotIdleBorderHex: d.dotIdleBorderHex,
+        dotIdleBorderOpacityPct: d.dotIdleBorderOpacityPct,
+        dotIdleBorderWidthPx: d.dotIdleBorderWidthPx,
+      }) ?? d
+    );
+  }
+  return (
+    parseTopicNavAppearance({
+      ...cur,
+      dotActiveBgHex: d.dotActiveBgHex,
+      dotActiveBgOpacityPct: d.dotActiveBgOpacityPct,
+      dotActiveBorderHex: d.dotActiveBorderHex,
+      dotActiveBorderOpacityPct: d.dotActiveBorderOpacityPct,
+      dotActiveBorderWidthPx: d.dotActiveBorderWidthPx,
+    }) ?? d
+  );
+}
 
 /** Firefox closes extension popups when native `<input type="color">` steals focus — use hex + swatches instead. */
 const IS_FIREFOX_POPUP = navigator.userAgent.includes('Firefox');
@@ -194,13 +280,19 @@ function applyChromeStrings(lang: UiLangCode): void {
 
   refreshLocaleChoices(lang);
   getEl('_hTitle').textContent = ux(lang, 'popupTitle');
-  getEl('_pSub').textContent = ux(lang, 'popupSubtitle');
   lblLocaleHeading.textContent = ux(lang, 'localeLabel');
+
+  getEl('_secTrack').textContent = ux(lang, 'popupSectionTrack');
+  getEl('_secInactive').textContent = ux(lang, 'popupSectionInactive');
+  getEl('_secActive').textContent = ux(lang, 'popupSectionActive');
+  btnResetTrack.textContent = ux(lang, 'btnSectionReset');
+  btnResetInactive.textContent = ux(lang, 'btnSectionReset');
+  btnResetActive.textContent = ux(lang, 'btnSectionReset');
 
   lblCapW.textContent = ux(lang, 'capsuleWidth', { w: `${shellWidth.value}px` });
   lblTrackBg.textContent = ux(lang, 'trackBgOpacity', { p: `${trackBgOp.value}%` });
   lblTrackBd.textContent = ux(lang, 'trackBorderOpacity', { p: `${trackBorderOp.value}%` });
-  lblDotShape.textContent = ux(lang, 'dotUnifiedStyle');
+  lblDotShape.textContent = ux(lang, 'popupSectionShape');
   applyDotStyleOptionLabels(lang);
   lblDotIdleBg.textContent = `${ux(lang, 'dotInactiveBg')} · ${dotIdleBgOp.value}%`;
   lblDotIdleBd.textContent = `${ux(lang, 'dotInactiveBorder')} · ${dotIdleBorderOp.value}%`;
@@ -225,7 +317,6 @@ function applyChromeStrings(lang: UiLangCode): void {
   savePreset2.textContent = ux(lang, 'btnSaveToPreset', { n: 2 });
   savePreset3.textContent = ux(lang, 'btnSaveToPreset', { n: 3 });
 
-  saveBtn.textContent = ux(lang, 'btnSave');
   resetBtn.textContent = ux(lang, 'btnReset');
   openOpts.textContent = ux(lang, 'btnOptions');
 
@@ -296,6 +387,7 @@ function syncSliderLabels(): void {
 
 function onAppearanceFieldInput(): void {
   syncSliderLabels();
+  schedulePersistAppearance();
 }
 
 const appearanceSliders: HTMLInputElement[] = [
@@ -344,7 +436,10 @@ installFirefoxColorUi(appearanceColorPickers);
 appearanceSliders.forEach((el) => el.addEventListener('input', onAppearanceFieldInput));
 appearanceColorPickers.forEach((el) => el.addEventListener('input', onAppearanceFieldInput));
 
-dotStyle.addEventListener('change', onAppearanceFieldInput);
+dotStyle.addEventListener('change', () => {
+  syncSliderLabels();
+  schedulePersistAppearance();
+});
 
 localePref.addEventListener('change', () => void persistLocalePrefs());
 
@@ -366,9 +461,12 @@ async function load(): Promise<void> {
 }
 
 loadDefaultPreset.addEventListener('click', () => {
-  status.textContent = '';
-  hydrate(defaultTopicNavAppearance());
-  status.textContent = ux(langForChrome(), 'presetLoadedDefault');
+  void (async () => {
+    status.textContent = '';
+    hydrate(defaultTopicNavAppearance());
+    await persistAppearanceImmediate();
+    status.textContent = ux(langForChrome(), 'presetLoadedDefault');
+  })();
 });
 
 function wirePresetSlot(
@@ -386,6 +484,7 @@ function wirePresetSlot(
     }
     const parsed = parseTopicNavAppearance(slot);
     hydrate(parsed ?? defaultTopicNavAppearance());
+    await persistAppearanceImmediate();
     status.textContent = ux(langForChrome(), 'presetLoaded', { n: index + 1 });
   });
 
@@ -402,22 +501,63 @@ wirePresetSlot(0, loadPreset1, savePreset1);
 wirePresetSlot(1, loadPreset2, savePreset2);
 wirePresetSlot(2, loadPreset3, savePreset3);
 
-saveBtn.addEventListener('click', async () => {
-  status.textContent = '';
-  const next = readFromForm();
-  await chrome.storage.sync.set({
-    [STORAGE_TOPIC_NAV_APPEARANCE]: next,
-    [STORAGE_TOPIC_NAV_UI]: { v: 1, langPref: prefFromSelect() },
-  });
-  applyChromeStrings(langForChrome());
-  status.textContent = ux(langForChrome(), 'savedStatus');
-});
+btnResetTrack.addEventListener('click', () =>
+  void (async () => {
+    status.textContent = '';
+    clearAppearanceDebounce();
+    const next = applySectionDefaults('track');
+    hydrate(next);
+    try {
+      await chrome.storage.sync.set({ [STORAGE_TOPIC_NAV_APPEARANCE]: next });
+      status.textContent = ux(langForChrome(), 'sectionResetDone');
+    } catch {
+      status.textContent = ux(langForChrome(), 'autoSaveFailed');
+    }
+  })(),
+);
+
+btnResetInactive.addEventListener('click', () =>
+  void (async () => {
+    status.textContent = '';
+    clearAppearanceDebounce();
+    const next = applySectionDefaults('inactive');
+    hydrate(next);
+    try {
+      await chrome.storage.sync.set({ [STORAGE_TOPIC_NAV_APPEARANCE]: next });
+      status.textContent = ux(langForChrome(), 'sectionResetDone');
+    } catch {
+      status.textContent = ux(langForChrome(), 'autoSaveFailed');
+    }
+  })(),
+);
+
+btnResetActive.addEventListener('click', () =>
+  void (async () => {
+    status.textContent = '';
+    clearAppearanceDebounce();
+    const next = applySectionDefaults('active');
+    hydrate(next);
+    try {
+      await chrome.storage.sync.set({ [STORAGE_TOPIC_NAV_APPEARANCE]: next });
+      status.textContent = ux(langForChrome(), 'sectionResetDone');
+    } catch {
+      status.textContent = ux(langForChrome(), 'autoSaveFailed');
+    }
+  })(),
+);
 
 resetBtn.addEventListener('click', async () => {
   status.textContent = '';
+  clearAppearanceDebounce();
   await chrome.storage.sync.remove(STORAGE_TOPIC_NAV_APPEARANCE as unknown as string);
   hydrate(defaultTopicNavAppearance());
   status.textContent = ux(langForChrome(), 'resetStatus');
+});
+
+window.addEventListener('pagehide', () => {
+  clearAppearanceDebounce();
+  const next = readFromForm();
+  void chrome.storage.sync.set({ [STORAGE_TOPIC_NAV_APPEARANCE]: next });
 });
 
 openOpts.addEventListener('click', () => chrome.runtime.openOptionsPage());

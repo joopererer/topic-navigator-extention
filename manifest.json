@@ -11,7 +11,7 @@
     "128": "icons/icon128.png"
   },
   "action": {
-    "default_title": "Topic Navigator · 样式与跳转",
+    "default_title": "Topic Navigator",
     "default_popup": "popup.html",
     "default_icon": {
       "16": "icons/icon16.png",

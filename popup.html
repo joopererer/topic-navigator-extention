@@ -13,14 +13,93 @@
         color: #1a1a1a;
         background: #fafafa;
       }
+      .tn-main {
+        padding: 10px 12px 12px;
+      }
+      .tn-appearance {
+        display: flex;
+        flex-direction: column;
+        gap: 0;
+      }
+      .tn-sec {
+        margin-top: 8px;
+        padding-top: 8px;
+        border-top: 1px solid #e4e4e4;
+      }
+      .tn-appearance > .tn-sec:first-child {
+        margin-top: 6px;
+        padding-top: 0;
+        border-top: none;
+      }
+      .tn-sec-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        margin-bottom: 6px;
+        flex-wrap: wrap;
+      }
+      .tn-sec-head--shape {
+        margin-bottom: 0;
+      }
+      .tn-sec-label {
+        font-size: 11px;
+        font-weight: 600;
+        color: #444;
+      }
+      .tn-sec-reset {
+        padding: 2px 8px;
+        font-size: 10.5px;
+        border-radius: 5px;
+        border: 1px solid #c4c4c4;
+        background: #fff;
+        cursor: pointer;
+        font: inherit;
+        color: #333;
+        flex-shrink: 0;
+      }
+      .tn-sec-reset:hover {
+        filter: brightness(0.97);
+      }
+      .tn-field-grid {
+        display: grid;
+        gap: 6px;
+      }
+      .tn-lbl {
+        display: grid;
+        gap: 2px;
+      }
+      .tn-lbl > span:first-child {
+        font-size: 11px;
+        font-weight: 600;
+        color: #444;
+      }
+      .tn-row-color {
+        display: flex;
+        gap: 6px;
+        align-items: center;
+      }
+      .tn-shape-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        width: 100%;
+      }
+      .tn-shape-row select {
+        flex: 1;
+        min-width: 0;
+        padding: 4px 6px;
+        border-radius: 6px;
+        border: 1px solid #ccc;
+        font: inherit;
+      }
     </style>
   </head>
   <body>
-    <main style="padding: 12px 14px 14px">
-      <h1 id="_hTitle" style="margin: 0 0 10px; font-size: 1rem; font-weight: 650">Topic Navigator</h1>
-      <p id="_pSub" style="margin: 0 0 10px; font-size: 11.5px; line-height: 1.38; color: #555"></p>
+    <main class="tn-main">
+      <h1 id="_hTitle" style="margin: 0 0 8px; font-size: 1rem; font-weight: 650">Topic Navigator</h1>
 
-      <label style="display: grid; gap: 4px; margin-bottom: 10px">
+      <label class="tn-lbl" style="margin-bottom: 4px">
         <span id="_lblLocaleHeading" style="font-size: 11px; font-weight: 600; color: #444"></span>
         <select id="localePref" style="padding: 5px 6px; border-radius: 6px; border: 1px solid #ccc; font: inherit">
           <option value="auto">Auto</option>
@@ -30,110 +109,135 @@
         </select>
       </label>
 
-      <section style="display: grid; gap: 10px">
-        <label style="display: grid; gap: 3px">
-          <span id="_lblCapW" style="font-size: 11px; font-weight: 600; color: #444"></span>
-          <input id="shellWidth" type="range" min="12" max="36" step="1" />
-        </label>
+      <div class="tn-appearance">
+        <!-- Track / capsule -->
+        <section class="tn-sec tn-sec--track">
+          <div class="tn-sec-head">
+            <span id="_secTrack" class="tn-sec-label"></span>
+            <button type="button" id="btnResetTrack" class="tn-sec-reset"></button>
+          </div>
+          <div class="tn-field-grid">
+            <label class="tn-lbl">
+              <span id="_lblCapW"></span>
+              <input id="shellWidth" type="range" min="12" max="36" step="1" />
+            </label>
+            <label class="tn-lbl">
+              <span id="_lblTrackBg"></span>
+              <span class="tn-row-color">
+                <input id="trackBg" type="color" style="width: 42px; height: 28px; padding: 0; border: none; cursor: pointer" />
+                <input id="trackBgOp" type="range" min="20" max="100" />
+              </span>
+            </label>
+            <label class="tn-lbl">
+              <span id="_lblTrackBd"></span>
+              <span class="tn-row-color">
+                <input id="trackBorder" type="color" style="width: 42px; height: 28px; padding: 0; border: none; cursor: pointer" />
+                <input id="trackBorderOp" type="range" min="4" max="100" />
+              </span>
+            </label>
+          </div>
+        </section>
 
-        <label style="display: grid; gap: 3px">
-          <span id="_lblTrackBg" style="font-size: 11px; font-weight: 600; color: #444"></span>
-          <span style="display: flex; gap: 6px; align-items: center">
-            <input id="trackBg" type="color" style="width: 42px; height: 28px; padding: 0; border: none; cursor: pointer" />
-            <input id="trackBgOp" type="range" min="20" max="100" />
-          </span>
-        </label>
+        <!-- Dot shape (global); no section reset -->
+        <section class="tn-sec tn-sec--shape">
+          <div class="tn-sec-head tn-sec-head--shape tn-shape-row">
+            <span id="_lblDotShape" class="tn-sec-label" style="flex-shrink: 0"></span>
+            <select id="dotStyle">
+              <option value="solid" data-key="dotStyleSolid">Solid</option>
+              <option value="hollow" data-key="dotStyleHollow">Hollow</option>
+              <option value="outline" data-key="dotStyleOutline">Outline</option>
+            </select>
+          </div>
+        </section>
 
-        <label style="display: grid; gap: 3px">
-          <span id="_lblTrackBd" style="font-size: 11px; font-weight: 600; color: #444"></span>
-          <span style="display: flex; gap: 6px; align-items: center">
-            <input id="trackBorder" type="color" style="width: 42px; height: 28px; padding: 0; border: none; cursor: pointer" />
-            <input id="trackBorderOp" type="range" min="4" max="100" />
-          </span>
-        </label>
+        <!-- Inactive dots -->
+        <section class="tn-sec tn-sec--idle">
+          <div class="tn-sec-head">
+            <span id="_secInactive" class="tn-sec-label"></span>
+            <button type="button" id="btnResetInactive" class="tn-sec-reset"></button>
+          </div>
+          <div class="tn-field-grid">
+            <label class="tn-lbl">
+              <span id="_lblDotIdleBg"></span>
+              <span class="tn-row-color">
+                <input id="dotIdleBg" type="color" style="flex: 0 0 42px; height: 28px; padding: 0; border: none; cursor: pointer" />
+                <input id="dotIdleBgOp" type="range" min="0" max="100" />
+              </span>
+            </label>
+            <label class="tn-lbl">
+              <span id="_lblDotIdleBd"></span>
+              <span class="tn-row-color">
+                <input id="dotIdleBorder" type="color" style="width: 42px; height: 28px; padding: 0; border: none; cursor: pointer" />
+                <input id="dotIdleBorderOp" type="range" min="12" max="100" />
+              </span>
+            </label>
+            <label class="tn-lbl">
+              <span id="_lblDotIdleBdW"></span>
+              <input id="dotIdleBorderW" type="range" min="10" max="80" step="1" />
+            </label>
+          </div>
+        </section>
 
-        <label style="display: grid; gap: 3px">
-          <span id="_lblDotShape" style="font-size: 11px; font-weight: 600; color: #444"></span>
-          <select id="dotStyle" style="padding: 5px 6px; border-radius: 6px; border: 1px solid #ccc; font: inherit">
-            <option value="solid" data-key="dotStyleSolid">Solid</option>
-            <option value="hollow" data-key="dotStyleHollow">Hollow</option>
-            <option value="outline" data-key="dotStyleOutline">Outline</option>
-          </select>
-        </label>
+        <!-- Active dot -->
+        <section class="tn-sec tn-sec--active">
+          <div class="tn-sec-head">
+            <span id="_secActive" class="tn-sec-label"></span>
+            <button type="button" id="btnResetActive" class="tn-sec-reset"></button>
+          </div>
+          <div class="tn-field-grid">
+            <label class="tn-lbl">
+              <span id="_lblDotActiveBg"></span>
+              <span class="tn-row-color">
+                <input id="dotActiveBg" type="color" style="flex: 0 0 42px; height: 28px; padding: 0; border: none; cursor: pointer" />
+                <input id="dotActiveBgOp" type="range" min="0" max="100" />
+              </span>
+            </label>
+            <label class="tn-lbl">
+              <span id="_lblDotActiveBd"></span>
+              <span class="tn-row-color">
+                <input id="dotActiveBorder" type="color" style="width: 42px; height: 28px; padding: 0; border: none; cursor: pointer" />
+                <input id="dotActiveBorderOp" type="range" min="12" max="100" />
+              </span>
+            </label>
+            <label class="tn-lbl">
+              <span id="_lblDotActiveBdW"></span>
+              <input id="dotActiveBorderW" type="range" min="10" max="100" step="1" />
+            </label>
+          </div>
+        </section>
+      </div>
 
-        <label style="display: grid; gap: 3px">
-          <span id="_lblDotIdleBg" style="font-size: 11px; font-weight: 600; color: #444"></span>
-          <span style="display: flex; gap: 6px; align-items: center">
-            <input id="dotIdleBg" type="color" style="flex: 0 0 42px; height: 28px; padding: 0; border: none; cursor: pointer" />
-            <input id="dotIdleBgOp" type="range" min="0" max="100" />
-          </span>
-        </label>
-
-        <label style="display: grid; gap: 3px">
-          <span id="_lblDotIdleBd" style="font-size: 11px; font-weight: 600; color: #444"></span>
-          <span style="display: flex; gap: 6px; align-items: center">
-            <input id="dotIdleBorder" type="color" style="width: 42px; height: 28px; padding: 0; border: none; cursor: pointer" />
-            <input id="dotIdleBorderOp" type="range" min="12" max="100" />
-          </span>
-        </label>
-        <label style="display: grid; gap: 3px">
-          <span id="_lblDotIdleBdW" style="font-size: 11px; font-weight: 600; color: #444"></span>
-          <input id="dotIdleBorderW" type="range" min="10" max="80" step="1" />
-        </label>
-
-        <label style="display: grid; gap: 3px">
-          <span id="_lblDotActiveBg" style="font-size: 11px; font-weight: 600; color: #444"></span>
-          <span style="display: flex; gap: 6px; align-items: center">
-            <input id="dotActiveBg" type="color" style="flex: 0 0 42px; height: 28px; padding: 0; border: none; cursor: pointer" />
-            <input id="dotActiveBgOp" type="range" min="0" max="100" />
-          </span>
-        </label>
-
-        <label style="display: grid; gap: 3px">
-          <span id="_lblDotActiveBd" style="font-size: 11px; font-weight: 600; color: #444"></span>
-          <span style="display: flex; gap: 6px; align-items: center">
-            <input id="dotActiveBorder" type="color" style="width: 42px; height: 28px; padding: 0; border: none; cursor: pointer" />
-            <input id="dotActiveBorderOp" type="range" min="12" max="100" />
-          </span>
-        </label>
-        <label style="display: grid; gap: 3px">
-          <span id="_lblDotActiveBdW" style="font-size: 11px; font-weight: 600; color: #444"></span>
-          <input id="dotActiveBorderW" type="range" min="10" max="100" step="1" />
-        </label>
-      </section>
-
-      <!-- Preset slots: set display:grid (and remove display:none) to show again — `hidden` was overridden by inline display:grid in Chrome. -->
+      <!-- Preset slots: visibility controlled in popup.ts if enabled -->
       <section
         id="presetSection"
-        style="display: none; margin-top: 14px; padding-top: 12px; border-top: 1px solid #e5e5e5; gap: 8px"
+        style="display: none; margin-top: 10px; padding-top: 8px; border-top: 1px solid #e5e5e5; gap: 6px"
       >
         <span id="_lblPresets" style="font-size: 11px; font-weight: 600; color: #444"></span>
         <div style="display: flex; flex-wrap: wrap; gap: 6px; align-items: center">
-          <button id="loadDefaultPreset" type="button" style="padding: 5px 10px; border-radius: 6px; border: 1px solid #bbb; cursor: pointer; font: inherit; font-size: 12px"></button>
+          <button id="loadDefaultPreset" type="button" style="padding: 4px 8px; border-radius: 6px; border: 1px solid #bbb; cursor: pointer; font: inherit; font-size: 12px"></button>
         </div>
         <div style="display: flex; flex-wrap: wrap; gap: 6px; align-items: center">
           <span id="_slot1Label" style="font-size: 11px; color: #555; min-width: 4.5em"></span>
-          <button id="loadPreset1" type="button" style="padding: 5px 10px; border-radius: 6px; border: 1px solid #bbb; cursor: pointer; font: inherit; font-size: 12px"></button>
-          <button id="savePreset1" type="button" style="padding: 5px 10px; border-radius: 6px; border: 1px solid #ccc; cursor: pointer; font: inherit; font-size: 12px; background: #fff"></button>
+          <button id="loadPreset1" type="button" style="padding: 4px 8px; border-radius: 6px; border: 1px solid #bbb; cursor: pointer; font: inherit; font-size: 12px"></button>
+          <button id="savePreset1" type="button" style="padding: 4px 8px; border-radius: 6px; border: 1px solid #ccc; cursor: pointer; font: inherit; font-size: 12px; background: #fff"></button>
         </div>
         <div style="display: flex; flex-wrap: wrap; gap: 6px; align-items: center">
           <span id="_slot2Label" style="font-size: 11px; color: #555; min-width: 4.5em"></span>
-          <button id="loadPreset2" type="button" style="padding: 5px 10px; border-radius: 6px; border: 1px solid #bbb; cursor: pointer; font: inherit; font-size: 12px"></button>
-          <button id="savePreset2" type="button" style="padding: 5px 10px; border-radius: 6px; border: 1px solid #ccc; cursor: pointer; font: inherit; font-size: 12px; background: #fff"></button>
+          <button id="loadPreset2" type="button" style="padding: 4px 8px; border-radius: 6px; border: 1px solid #bbb; cursor: pointer; font: inherit; font-size: 12px"></button>
+          <button id="savePreset2" type="button" style="padding: 4px 8px; border-radius: 6px; border: 1px solid #ccc; cursor: pointer; font: inherit; font-size: 12px; background: #fff"></button>
         </div>
         <div style="display: flex; flex-wrap: wrap; gap: 6px; align-items: center">
           <span id="_slot3Label" style="font-size: 11px; color: #555; min-width: 4.5em"></span>
-          <button id="loadPreset3" type="button" style="padding: 5px 10px; border-radius: 6px; border: 1px solid #bbb; cursor: pointer; font: inherit; font-size: 12px"></button>
-          <button id="savePreset3" type="button" style="padding: 5px 10px; border-radius: 6px; border: 1px solid #ccc; cursor: pointer; font: inherit; font-size: 12px; background: #fff"></button>
+          <button id="loadPreset3" type="button" style="padding: 4px 8px; border-radius: 6px; border: 1px solid #bbb; cursor: pointer; font: inherit; font-size: 12px"></button>
+          <button id="savePreset3" type="button" style="padding: 4px 8px; border-radius: 6px; border: 1px solid #ccc; cursor: pointer; font: inherit; font-size: 12px; background: #fff"></button>
         </div>
       </section>
 
-      <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px">
-        <button id="save" type="button" style="padding: 6px 12px; border-radius: 7px; border: 1px solid #bbb; cursor: pointer; font: inherit"></button>
-        <button id="reset" type="button" style="padding: 6px 12px; border-radius: 7px; border: 1px solid #bbb; cursor: pointer; font: inherit; background: #fff"></button>
-        <button id="openOptions" type="button" style="padding: 6px 10px; border-radius: 7px; border: none; cursor: pointer; font: inherit; color: #2563eb; background: transparent"></button>
+      <div style="display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 12px">
+        <button id="reset" type="button" style="padding: 5px 10px; border-radius: 7px; border: 1px solid #bbb; cursor: pointer; font: inherit"></button>
+        <button id="openOptions" type="button" style="padding: 5px 8px; border-radius: 7px; border: none; cursor: pointer; font: inherit; color: #2563eb; background: transparent"></button>
       </div>
-      <p id="status" role="status" style="margin: 10px 0 0; min-height: 1.25em; font-size: 11px; color: #0a6626"></p>
+      <p id="status" role="status" style="margin: 8px 0 0; min-height: 1.25em; font-size: 11px; color: #0a6626"></p>
     </main>
     <script type="module" src="/src/popup/popup.ts"></script>
   </body>

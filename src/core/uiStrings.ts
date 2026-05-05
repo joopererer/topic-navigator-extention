@@ -39,6 +39,42 @@ export const UI = {
     zh: '时间轴胶囊与节点样式会同步到已打开的会话页。',
     fr: 'La capsule et les pastilles sont appliquées aux onglets de discussion ouverts.',
   },
+  popupSectionTrack: {
+    en: 'Capsule · track',
+    zh: '胶囊与时间轴底色',
+    fr: 'Capsule · rail',
+  },
+  popupSectionShape: {
+    en: 'Dot shape',
+    zh: '时间点形状',
+    fr: 'Forme des points',
+  },
+  popupSectionInactive: {
+    en: 'Inactive dots',
+    zh: '未选中点',
+    fr: 'Pastilles au repos',
+  },
+  popupSectionActive: {
+    en: 'Active dot',
+    zh: '选中点',
+    fr: 'Pastille active',
+  },
+  btnSectionReset: { en: 'Reset', zh: '默认', fr: 'Réinit.' },
+  autoSavedStatus: {
+    en: 'Saved · open tabs update automatically',
+    zh: '已保存 · 已打开的页面会自动更新',
+    fr: 'Enregistré · onglets mis à jour',
+  },
+  autoSaveFailed: {
+    en: 'Could not save. Try again.',
+    zh: '保存失败，请重试。',
+    fr: "Impossible d'enregistrer.",
+  },
+  sectionResetDone: {
+    en: 'This section was reset to defaults.',
+    zh: '本节已恢复为默认。',
+    fr: 'Section réinitialisée.',
+  },
   firefoxHexColorTitle: {
     en: 'Color as #rrggbb (Firefox: type or pick a swatch)',
     zh: '十六进制色值 #rrggbb（Firefox：输入或点色块）',
@@ -107,19 +143,19 @@ export const UI = {
     fr: 'Enregistré ({n}).',
   },
   presetLoaded: {
-    en: 'Loaded slot {n}. Use Save & apply to update open tabs.',
-    zh: '已载入方案{n}。保存并应用后可同步到页面。',
-    fr: 'Emplacement {n} chargé. Enregistrez pour appliquer.',
+    en: 'Loaded slot {n}; saved automatically.',
+    zh: '已载入方案{n}，并已自动保存。',
+    fr: 'Emplacement {n} chargé · enregistré.',
   },
   presetEmpty: {
-    en: 'Slot {n} is empty. Save the current form first.',
-    zh: '方案{n}为空，请先将当前配色保存到该方案。',
+    en: 'Slot {n} is empty. Adjust theme, then save to this slot.',
+    zh: '方案{n}为空。调好配色后可保存到该方案。',
     fr: 'Emplacement {n} vide.',
   },
   presetLoadedDefault: {
-    en: 'Loaded built‑in default. Use Save & apply to update open tabs.',
-    zh: '已载入内置默认配色。保存并应用后可同步到页面。',
-    fr: 'Défaut chargé. Enregistrez pour appliquer.',
+    en: 'Loaded defaults; saved automatically.',
+    zh: '已载入内置默认配色，并已自动保存。',
+    fr: 'Thème par défaut chargé · enregistré.',
   },
 
   /** Options page */
