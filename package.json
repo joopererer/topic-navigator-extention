@@ -13,7 +13,7 @@
     "test": "vitest run"
   },
   "devDependencies": {
-    "@types/chrome": "^0.0.287",
+    "@types/chrome": "^0.1.40",
     "@types/jsdom": "^21.1.7",
     "@types/node": "^22.10.0",
     "archiver": "^7.0.1",
