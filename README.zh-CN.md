@@ -13,7 +13,9 @@
   &nbsp;
   <a href="./LICENSE"><img src="https://img.shields.io/github/license/joopererer/topic-navigator-extention" alt="License" /></a>
   &nbsp;
-  <a href="https://addons.mozilla.org/firefox/addon/topic-navigator/"><img src="https://img.shields.io/amo/v/topic-navigator?label=firefox%E5%BA%93" alt="Firefox 附加组件版本" /></a>
+  <a href="https://chromewebstore.google.com/detail/topic-navigator/beekbleccbdjfddegookdonfbnlbognc"><img src="https://img.shields.io/chrome-web-store/v/beekbleccbdjfddegookdonfbnlbognc?label=chrome&logo=googlechrome&logoColor=white" alt="Chrome 应用商店版本" /></a>
+  &nbsp;
+  <a href="https://addons.mozilla.org/addon/topic-navigator/"><img src="https://img.shields.io/amo/v/topic-navigator?label=firefox&logo=firefox-browser&logoColor=white" alt="Firefox 附加组件版本" /></a>
   &nbsp;
   <a href="https://developer.chrome.com/docs/extensions/mv3/intro/"><img src="https://img.shields.io/badge/Manifest-V3-blue" alt="MV3" /></a>
 </p>
@@ -62,7 +64,8 @@
 
 ## 从商店安装
 
-- **Firefox**：[Mozilla 附加组件 — Topic Navigator](https://addons.mozilla.org/firefox/addon/topic-navigator/)（也可使用 [中文区域页面](https://addons.mozilla.org/zh-CN/firefox/addon/topic-navigator/)）。
+- **Chrome**（及多数 Chromium 内核浏览器）：[Chrome 应用商店 — Topic Navigator](https://chromewebstore.google.com/detail/topic-navigator/beekbleccbdjfddegookdonfbnlbognc)。**Microsoft Edge** 可在 `edge://extensions` 中开启「允许来自其他应用商店的扩展」后，从同一 Chrome 应用商店安装。
+- **Firefox**：[Mozilla 附加组件 — Topic Navigator](https://addons.mozilla.org/addon/topic-navigator/)（[English (US)](https://addons.mozilla.org/en-US/firefox/addon/topic-navigator/) · [简体中文](https://addons.mozilla.org/zh-CN/firefox/addon/topic-navigator/)）。若列表支持，也可在 [Firefox for Android](https://www.mozilla.org/firefox/mobile/) 上安装。
 
 ## 安装（从源码加载）
 

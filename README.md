@@ -13,12 +13,14 @@
   &nbsp;
   <a href="./LICENSE"><img src="https://img.shields.io/github/license/joopererer/topic-navigator-extention" alt="License" /></a>
   &nbsp;
-  <a href="https://addons.mozilla.org/firefox/addon/topic-navigator/"><img src="https://img.shields.io/amo/v/topic-navigator?label=firefox%20addon" alt="Firefox add-on version" /></a>
+  <a href="https://chromewebstore.google.com/detail/topic-navigator/beekbleccbdjfddegookdonfbnlbognc"><img src="https://img.shields.io/chrome-web-store/v/beekbleccbdjfddegookdonfbnlbognc?label=chrome&logo=googlechrome&logoColor=white" alt="Chrome Web Store version" /></a>
+  &nbsp;
+  <a href="https://addons.mozilla.org/addon/topic-navigator/"><img src="https://img.shields.io/amo/v/topic-navigator?label=firefox&logo=firefox-browser&logoColor=white" alt="Firefox add-on version" /></a>
   &nbsp;
   <a href="https://developer.chrome.com/docs/extensions/mv3/intro/"><img src="https://img.shields.io/badge/Manifest-V3-blue" alt="Manifest V3" /></a>
 </p>
 
-A Chromium extension that adds a **turn-by-turn sidebar timeline** on ChatGPT, Gemini, Claude, Onyx (including self-hosted), and similar chat pages: jump between user/assistant turns, open an outline list with search, and customize the rail and dot colors from the toolbar popup.
+A browser extension that adds a **turn-by-turn sidebar timeline** on ChatGPT, Gemini, Claude, Onyx (including self-hosted), and similar chat pages: jump between user/assistant turns, open an outline list with search, and customize the rail and dot colors from the toolbar popup.
 
 ---
 
@@ -62,7 +64,8 @@ Other Onyx deployments use **custom patterns** on the options page. The extensio
 
 ## Install from stores
 
-- **Firefox**: [Topic Navigator on addons.mozilla.org](https://addons.mozilla.org/firefox/addon/topic-navigator/) — install directly in Firefox desktop (and Firefox for Android if your listing targets it).
+- **Chrome** (and other Chromium browsers): [Topic Navigator on the Chrome Web Store](https://chromewebstore.google.com/detail/topic-navigator/beekbleccbdjfddegookdonfbnlbognc). **Microsoft Edge** can install from the Chrome Web Store after enabling “Allow extensions from other stores” in `edge://extensions`.
+- **Firefox**: [Topic Navigator on addons.mozilla.org](https://addons.mozilla.org/addon/topic-navigator/) — [English (US)](https://addons.mozilla.org/en-US/firefox/addon/topic-navigator/) · [简体中文](https://addons.mozilla.org/zh-CN/firefox/addon/topic-navigator/). The listing may also show [Firefox for Android](https://www.mozilla.org/firefox/mobile/) when supported.
 
 ## Install (load unpacked)
 
