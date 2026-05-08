@@ -7,7 +7,7 @@ All notable changes to this project are documented in this file by release versi
 - **Scrolling (Chrome)**: More reliable jumps on Gemini and Claude by choosing the scroll ancestor with the largest vertical overflow, instead of the first nested scroller.
 - **Popup (Chrome / Edge)**: Stopped whole-row `<label>` wrapping from forwarding clicks to the color input—tapping the field title or row padding no longer opens the native color picker by accident.
 - **Firefox / AMO**: Desktop manifest keeps `data_collection_permissions`; removed it from `gecko_android` to avoid “unexpected property” warnings. Content UI uses DOM APIs instead of `innerHTML` for the outline panel and FAB icon where applicable.
-- **Build**: Firefox package continues to target Gecko 128+ for optional host permissions and related APIs.
+- **Build**: Firefox package targets Gecko **140+** (desktop) and **142+** (Android) so `data_collection_permissions` matches AMO linter; `optional_host_permissions` remains valid.
 
 ## 1.0.2
 
